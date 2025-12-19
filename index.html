@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Discord Ticket Transcript Converter</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            background-color: #36393f;
+            color: #dcddde;
+            padding: 20px;
+            line-height: 1.5;
+        }
+
+        .upload-container {
+            max-width: 800px;
+            margin: 0 auto;
+            text-align: center;
+            padding: 60px 20px;
+        }
+
+        .upload-container h1 {
+            color: #fff;
+            font-size: 32px;
+            margin-bottom: 16px;
+        }
+
+        .upload-container p {
+            color: #b9bbbe;
+            font-size: 16px;
+            margin-bottom: 32px;
+        }
+
+        .upload-area {
+            border: 2px dashed #4f545c;
+            border-radius: 8px;
+            padding: 60px 40px;
+            background-color: #2f3136;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .upload-area:hover {
+            border-color: #5865f2;
+            background-color: #32353b;
+        }
+
+        .upload-area.dragover {
+            border-color: #5865f2;
+            background-color: #32353b;
+        }
+
+        .upload-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        .upload-text {
+            font-size: 18px;
+            color: #dcddde;
+            margin-bottom: 8px;
+        }
+
+        .upload-hint {
+            font-size: 14px;
+            color: #72767d;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .button {
+            background-color: #5865f2;
+            color: #fff;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            margin: 8px;
+            transition: background-color 0.2s;
+        }
+
+        .button:hover {
+            background-color: #4752c4;
+        }
+
+        .button.secondary {
+            background-color: #4f545c;
+        }
+
+        .button.secondary:hover {
+            background-color: #5d6269;
+        }
+
+        .preview-container {
+            max-width: 900px;
+            margin: 0 auto;
+            display: none;
+        }
+
+        .preview-header {
+            background-color: #2f3136;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .preview-title {
+            color: #fff;
+            font-size: 24px;
+        }
+
+        .container {
+            background-color: #2f3136;
+            border-radius: 8px;
+            padding: 20px;
+        }
+
+        .archive-header {
+            border-bottom: 1px solid #202225;
+            padding-bottom: 20px;
+            margin-bottom: 20px;
+        }
+
+        .archive-header h1 {
+            color: #fff;
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+
+        .archive-header .metadata {
+            color: #b9bbbe;
+            font-size: 14px;
+        }
+
+        .channel-name {
+            color: #8e9297;
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+        }
+
+        .channel-name::before {
+            content: "#";
+            margin-right: 4px;
+            font-weight: 300;
+        }
+
+        .message {
+            padding: 2px 16px;
+            margin-top: 17px;
+            position: relative;
+            display: flex;
+            gap: 16px;
+        }
+
+        .message:hover {
+            background-color: #32353b;
+        }
+
+        .message.grouped {
+            margin-top: 0;
+        }
+
+        .message.grouped .avatar {
+            visibility: hidden;
+        }
+
+        .message.grouped .message-header {
+            display: none;
+        }
+
+        .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            flex-shrink: 0;
+            font-size: 18px;
+            margin-top: 2px;
+        }
+
+        .message-body {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .message-header {
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+            line-height: 1.375rem;
+        }
+
+        .author {
+            font-weight: 500;
+            cursor: pointer;
+        }
+
+        .author:hover {
+            text-decoration: underline;
+        }
+
+        .timestamp {
+            font-size: 12px;
+            color: #72767d;
+            font-weight: 400;
+            margin-left: 4px;
+        }
+
+        .message-content {
+            color: #dcddde;
+            word-wrap: break-word;
+            line-height: 1.375rem;
+            white-space: pre-wrap;
+        }
+
+        .divider {
+            display: flex;
+            align-items: center;
+            text-align: center;
+            margin: 20px 0;
+            color: #72767d;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .divider::before,
+        .divider::after {
+            content: '';
+            flex: 1;
+            border-bottom: 1px solid #40444b;
+        }
+
+        .divider span {
+            padding: 0 16px;
+        }
+
+        .error {
+            background-color: #ed4245;
+            color: #fff;
+            padding: 12px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #b9bbbe;
+        }
+    </style>
+</head>
+<body>
+    <div class="upload-container" id="uploadContainer">
+        <h1>Discord Ticket Transcript Converter</h1>
+        <p>Convert YAGPDB ticket transcripts to beautiful Discord-styled HTML archives</p>
+        
+        <div class="upload-area" id="uploadArea">
+            <div class="upload-icon">📄</div>
+            <div class="upload-text">Drop your transcript file here</div>
+            <div class="upload-hint">or click to browse</div>
+            <input type="file" id="fileInput" accept=".txt">
+        </div>
+    </div>
+
+    <div class="preview-container" id="previewContainer">
+        <div class="preview-header">
+            <div class="preview-title">Preview</div>
+            <div>
+                <button class="button" id="downloadBtn">Download HTML</button>
+                <button class="button secondary" id="newFileBtn">Convert Another File</button>
+            </div>
+        </div>
+        <div id="preview"></div>
+    </div>
+
+    <script src="converter.js"></script>
+</body>
+</html>
