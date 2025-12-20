@@ -175,11 +175,11 @@
 
         .message.grouped {
             margin-top: 0;
+            padding-left: 72px;
         }
 
         .message.grouped .avatar {
-            height: 0px;
-            visibility: hidden;
+            display: none;
         }
 
         .message.grouped .message-header {
@@ -206,14 +206,17 @@
 
         .message-header {
             display: flex;
+            flex-wrap: wrap;
             align-items: baseline;
-            gap: 8px;
+            column-gap: 8px;
+            row-gap: 0;
             line-height: 1.375rem;
         }
 
         .author {
             font-weight: 500;
             cursor: pointer;
+            flex-shrink: 0;
         }
 
         .author:hover {
@@ -224,7 +227,9 @@
             font-size: 12px;
             color: #72767d;
             font-weight: 400;
-            margin-left: 4px;
+            margin-left: 0;
+            flex-shrink: 1;
+            white-space: nowrap;
         }
 
         .message-content {
@@ -336,27 +341,144 @@
             font-family: 'Consolas', 'Monaco', monospace;
             font-size: 0.875rem;
         }
+
+        .url-input-container {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+            align-items: stretch;
+        }
+
+        .url-input {
+            flex: 1;
+            background-color: #2f3136;
+            border: 1px solid #4f545c;
+            border-radius: 4px;
+            padding: 12px 16px;
+            color: #dcddde;
+            font-size: 16px;
+            font-family: inherit;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .url-input:focus {
+            border-color: #5865f2;
+        }
+
+        .url-input::placeholder {
+            color: #72767d;
+        }
+
+        .preview-actions {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .compact-upload {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .compact-url-input {
+            background-color: #202225;
+            border: 1px solid #4f545c;
+            border-radius: 4px;
+            padding: 8px 12px;
+            color: #dcddde;
+            font-size: 14px;
+            font-family: inherit;
+            outline: none;
+            transition: border-color 0.2s;
+            width: 280px;
+        }
+
+        .compact-url-input:focus {
+            border-color: #5865f2;
+        }
+
+        .compact-url-input::placeholder {
+            color: #72767d;
+        }
+
+        .button.compact {
+            padding: 8px 16px;
+            font-size: 14px;
+        }
+
+        .divider-vertical {
+            width: 1px;
+            height: 24px;
+            background-color: #4f545c;
+        }
+
+        @media (max-width: 768px) {
+            .preview-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 16px;
+            }
+
+            .preview-actions {
+                width: 100%;
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .compact-upload {
+                width: 100%;
+                flex-direction: column;
+            }
+
+            .compact-url-input {
+                width: 100%;
+            }
+
+            .button {
+                width: 100%;
+            }
+
+            .divider-vertical {
+                display: none;
+            }
+        }
     </style>
 </head>
 <body>
     <div class="upload-container" id="uploadContainer">
         <h1>Discord Ticket Transcript Converter</h1>
         <p>Convert YAGPDB ticket transcripts to Discord-styled HTML</p>
-        
+
         <div class="upload-area" id="uploadArea">
             <div class="upload-icon">📄</div>
             <div class="upload-text">Drop your transcript file here</div>
             <div class="upload-hint">or click to browse</div>
             <input type="file" id="fileInput" accept=".txt">
         </div>
+
+        <div class="divider"><span>OR</span></div>
+
+        <div class="url-input-container">
+            <input type="text" id="urlInput" class="url-input" placeholder="Paste Discord CDN URL to transcript file...">
+            <button class="button" id="urlLoadBtn">Load from URL</button>
+        </div>
     </div>
 
     <div class="preview-container" id="previewContainer">
         <div class="preview-header">
             <div class="preview-title">Preview</div>
-            <div>
-                <button class="button" id="downloadBtn">Download HTML</button>
-                <button class="button secondary" id="newFileBtn">Convert Another File</button>
+            <div class="preview-actions">
+                <div class="compact-upload">
+                    <input type="text" id="compactUrlInput" class="compact-url-input" placeholder="Paste URL to load another...">
+                    <button class="button compact" id="compactUrlLoadBtn">Load</button>
+                    <button class="button compact secondary" id="compactFileBtn">Browse</button>
+                    <input type="file" id="compactFileInput" accept=".txt" style="display: none;">
+                </div>
+                <div class="divider-vertical"></div>
+                <button class="button compact" id="downloadBtn">Download HTML</button>
             </div>
         </div>
         <div id="preview"></div>

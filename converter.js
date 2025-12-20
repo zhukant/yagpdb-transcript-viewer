@@ -264,11 +264,11 @@ function generateHTML(data) {
 
         .message.grouped {
             margin-top: 0;
+            padding-left: 72px;
         }
 
         .message.grouped .avatar {
-            height: 0px;
-            visibility: hidden;
+            display: none;
         }
 
         .message.grouped .message-header {
@@ -295,20 +295,25 @@ function generateHTML(data) {
 
         .message-header {
             display: flex;
+            flex-wrap: wrap;
             align-items: baseline;
-            gap: 8px;
+            column-gap: 8px;
+            row-gap: 0;
             line-height: 1.375rem;
         }
 
         .author {
             font-weight: 500;
+            flex-shrink: 0;
         }
 
         .timestamp {
             font-size: 12px;
             color: #72767d;
             font-weight: 400;
-            margin-left: 4px;
+            margin-left: 0;
+            flex-shrink: 1;
+            white-space: nowrap;
         }
 
         .message-content {
@@ -458,7 +463,12 @@ const uploadContainer = document.getElementById('uploadContainer');
 const previewContainer = document.getElementById('previewContainer');
 const preview = document.getElementById('preview');
 const downloadBtn = document.getElementById('downloadBtn');
-const newFileBtn = document.getElementById('newFileBtn');
+const urlInput = document.getElementById('urlInput');
+const urlLoadBtn = document.getElementById('urlLoadBtn');
+const compactUrlInput = document.getElementById('compactUrlInput');
+const compactUrlLoadBtn = document.getElementById('compactUrlLoadBtn');
+const compactFileBtn = document.getElementById('compactFileBtn');
+const compactFileInput = document.getElementById('compactFileInput');
 
 let currentHTML = '';
 
@@ -530,12 +540,105 @@ downloadBtn.addEventListener('click', () => {
     URL.revokeObjectURL(url);
 });
 
-newFileBtn.addEventListener('click', () => {
-    uploadContainer.style.display = 'block';
-    previewContainer.style.display = 'none';
-    preview.innerHTML = '';
-    fileInput.value = '';
-    currentHTML = '';
-    userColorMap.clear();
-    colorIndex = 0;
+urlLoadBtn.addEventListener('click', () => {
+    const url = urlInput.value.trim();
+    if (!url) {
+        alert('Please enter a URL');
+        return;
+    }
+    loadFromURL(url);
 });
+
+urlInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+        const url = urlInput.value.trim();
+        if (url) {
+            loadFromURL(url);
+        }
+    }
+});
+
+async function loadFromURL(url) {
+    try {
+        urlLoadBtn.disabled = true;
+        urlLoadBtn.textContent = 'Loading...';
+
+        const response = await fetch(url);
+
+        if (!response.ok) {
+            throw new Error(`Failed to fetch: ${response.status} ${response.statusText}`);
+        }
+
+        const text = await response.text();
+        const data = parseTranscript(text);
+        currentHTML = generateHTML(data);
+
+        uploadContainer.style.display = 'none';
+        previewContainer.style.display = 'block';
+        preview.innerHTML = currentHTML;
+
+    } catch (error) {
+        alert('Error loading transcript from URL: ' + error.message);
+        console.error(error);
+    } finally {
+        urlLoadBtn.disabled = false;
+        urlLoadBtn.textContent = 'Load from URL';
+    }
+}
+
+compactFileBtn.addEventListener('click', () => {
+    compactFileInput.click();
+});
+
+compactFileInput.addEventListener('change', (e) => {
+    if (e.target.files.length > 0) {
+        handleFile(e.target.files[0]);
+        compactFileInput.value = '';
+        compactUrlInput.value = '';
+    }
+});
+
+compactUrlLoadBtn.addEventListener('click', () => {
+    const url = compactUrlInput.value.trim();
+    if (!url) {
+        alert('Please enter a URL');
+        return;
+    }
+    loadFromCompactURL(url);
+});
+
+compactUrlInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+        const url = compactUrlInput.value.trim();
+        if (url) {
+            loadFromCompactURL(url);
+        }
+    }
+});
+
+async function loadFromCompactURL(url) {
+    try {
+        compactUrlLoadBtn.disabled = true;
+        compactUrlLoadBtn.textContent = 'Loading...';
+
+        const response = await fetch(url);
+
+        if (!response.ok) {
+            throw new Error(`Failed to fetch: ${response.status} ${response.statusText}`);
+        }
+
+        const text = await response.text();
+        const data = parseTranscript(text);
+        currentHTML = generateHTML(data);
+
+        preview.innerHTML = currentHTML;
+        compactUrlInput.value = '';
+
+    } catch (error) {
+        alert('Error loading transcript from URL: ' + error.message);
+        console.error(error);
+    } finally {
+        compactUrlLoadBtn.disabled = false;
+        compactUrlLoadBtn.textContent = 'Load';
+    }
+}
