@@ -186,9 +186,17 @@ function shouldGroupMessage(currentMsg, prevMsg) {
     return diffMinutes < 5;
 }
 
+function getTranscriptStyles() {
+    const styleElement = document.getElementById('transcript-styles');
+    if (styleElement) {
+        return styleElement.textContent;
+    }
+    return '';
+}
+
 function generateHTML(data) {
     const { ticketInfo, messages } = data;
-    
+
     let html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -196,221 +204,7 @@ function generateHTML(data) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ticket #${ticketInfo ? ticketInfo.ticketNumber : 'Unknown'}</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif;
-            background-color: #36393f;
-            color: #dcddde;
-            padding: 20px;
-            line-height: 1.5;
-        }
-
-        .container {
-            max-width: 900px;
-            margin: 0 auto;
-            background-color: #2f3136;
-            border-radius: 8px;
-            padding: 20px;
-        }
-
-        .archive-header {
-            border-bottom: 1px solid #202225;
-            padding-bottom: 20px;
-            margin-bottom: 20px;
-        }
-
-        .archive-header h1 {
-            color: #fff;
-            font-size: 24px;
-            margin-bottom: 8px;
-        }
-
-        .archive-header .metadata {
-            color: #b9bbbe;
-            font-size: 14px;
-        }
-
-        .channel-name {
-            color: #8e9297;
-            font-size: 16px;
-            font-weight: 600;
-            margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-        }
-
-        .channel-name::before {
-            content: "#";
-            margin-right: 4px;
-            font-weight: 300;
-        }
-
-        .message {
-            padding: 2px 16px;
-            margin-top: 17px;
-            position: relative;
-            display: flex;
-            gap: 16px;
-        }
-
-        .message:hover {
-            background-color: #32353b;
-        }
-
-        .message.grouped {
-            margin-top: 0;
-            padding-left: 72px;
-        }
-
-        .message.grouped .avatar {
-            display: none;
-        }
-
-        .message.grouped .message-header {
-            display: none;
-        }
-
-        .avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 600;
-            flex-shrink: 0;
-            font-size: 18px;
-            margin-top: 2px;
-        }
-
-        .message-body {
-            flex: 1;
-            min-width: 0;
-        }
-
-        .message-header {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: baseline;
-            column-gap: 8px;
-            row-gap: 0;
-            line-height: 1.375rem;
-        }
-
-        .author {
-            font-weight: 500;
-            flex-shrink: 0;
-        }
-
-        .timestamp {
-            font-size: 12px;
-            color: #72767d;
-            font-weight: 400;
-            margin-left: 0;
-            flex-shrink: 1;
-            white-space: nowrap;
-        }
-
-        .message-content {
-            color: #dcddde;
-            word-wrap: break-word;
-            line-height: 1.375rem;
-            min-height: 0;
-        }
-
-        .message-content:empty {
-            display: none;
-        }
-
-        .message-content code {
-            background-color: #2f3136;
-            border-radius: 3px;
-            padding: 2px 4px;
-            font-family: 'Consolas', 'Monaco', monospace;
-            font-size: 0.875rem;
-        }
-
-        .divider {
-            display: flex;
-            align-items: center;
-            text-align: center;
-            margin: 20px 0;
-            color: #72767d;
-            font-size: 12px;
-            font-weight: 600;
-        }
-
-        .divider::before,
-        .divider::after {
-            content: '';
-            flex: 1;
-            border-bottom: 1px solid #40444b;
-        }
-
-        .divider span {
-            padding: 0 16px;
-        }
-
-        .embed {
-            background-color: #2f3136;
-            border-left: 4px solid #202225;
-            border-radius: 4px;
-            padding: 8px 12px;
-            margin-top: 4px;
-            margin-bottom: 0;
-            max-width: 520px;
-        }
-
-        .message.grouped .embed {
-            margin-top: 0;
-        }
-
-        .embed-author {
-            display: flex;
-            align-items: center;
-            margin-bottom: 8px;
-        }
-
-        .embed-author-icon {
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            margin-right: 8px;
-        }
-
-        .embed-author-name {
-            font-size: 14px;
-            font-weight: 600;
-            color: #ffffff;
-        }
-
-        .embed-description {
-            font-size: 14px;
-            color: #dcddde;
-            line-height: 1.375rem;
-            white-space: pre-wrap;
-        }
-
-        .embed-link {
-            color: #00b0f4;
-            text-decoration: none;
-        }
-
-        .embed-link:hover {
-            text-decoration: underline;
-        }
-
-        .blockquote {
-            border-left: 4px solid #4e5058;
-            padding-left: 12px;
-            margin: 4px 0;
-            color: #b5bac1;
-        }
+${getTranscriptStyles()}
     </style>
 </head>
 <body>
@@ -558,18 +352,41 @@ urlInput.addEventListener('keypress', (e) => {
     }
 });
 
+async function fetchTranscriptText(url) {
+    const isDiscordCDN = url.includes('cdn.discordapp.com') || url.includes('cdn.discord.com');
+
+    if (isDiscordCDN) {
+        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+        const response = await fetch(proxyUrl);
+        if (!response.ok) {
+            throw new Error(`Failed to fetch: ${response.status} ${response.statusText}`);
+        }
+        return await response.text();
+    }
+
+    try {
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        return await response.text();
+    } catch (directFetchError) {
+        console.log('Direct fetch blocked, using CORS proxy...', directFetchError);
+        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+        const proxyResponse = await fetch(proxyUrl);
+        if (!proxyResponse.ok) {
+            throw new Error(`Proxy fetch failed: ${proxyResponse.status} ${proxyResponse.statusText}`);
+        }
+        return await proxyResponse.text();
+    }
+}
+
 async function loadFromURL(url) {
     try {
         urlLoadBtn.disabled = true;
         urlLoadBtn.textContent = 'Loading...';
 
-        const response = await fetch(url);
-
-        if (!response.ok) {
-            throw new Error(`Failed to fetch: ${response.status} ${response.statusText}`);
-        }
-
-        const text = await response.text();
+        const text = await fetchTranscriptText(url);
         const data = parseTranscript(text);
         currentHTML = generateHTML(data);
 
@@ -621,13 +438,7 @@ async function loadFromCompactURL(url) {
         compactUrlLoadBtn.disabled = true;
         compactUrlLoadBtn.textContent = 'Loading...';
 
-        const response = await fetch(url);
-
-        if (!response.ok) {
-            throw new Error(`Failed to fetch: ${response.status} ${response.statusText}`);
-        }
-
-        const text = await response.text();
+        const text = await fetchTranscriptText(url);
         const data = parseTranscript(text);
         currentHTML = generateHTML(data);
 
