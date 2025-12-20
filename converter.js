@@ -139,19 +139,47 @@ function parseContent(content) {
             embedHTML = `<div class="embed" style="border-left-color: ${colorHex};">`;
         }
 
-        if (embedData.author && embedData.author.name) {
-            embedHTML += `<div class="embed-author">`;
-            if (embedData.author.icon_url || embedData.author.proxy_icon_url) {
-                const iconUrl = embedData.author.proxy_icon_url || embedData.author.icon_url;
-                embedHTML += `<img class="embed-author-icon" src="${iconUrl}" alt="">`;
-            }
-            embedHTML += `<span class="embed-author-name">${embedData.author.name}</span>`;
-            embedHTML += `</div>`;
+        // Generic embed content renderer
+        let embedContent = '';
+
+        if (embedData.author?.name) {
+            embedContent += `**${embedData.author.name}**\n\n`;
+        }
+
+        if (embedData.title) {
+            embedContent += `**${embedData.title}**\n\n`;
         }
 
         if (embedData.description) {
-            const formattedDesc = formatDiscordMarkdown(embedData.description);
-            embedHTML += `<div class="embed-description">${formattedDesc}</div>`;
+            embedContent += `${embedData.description}\n\n`;
+        }
+
+        if (embedData.fields && Array.isArray(embedData.fields)) {
+            for (const field of embedData.fields) {
+                if (field.name) {
+                    embedContent += `**${field.name}**\n`;
+                }
+                if (field.value) {
+                    embedContent += `${field.value}\n\n`;
+                }
+            }
+        }
+
+        if (embedData.footer?.text || embedData.timestamp) {
+            const footerParts = [];
+            if (embedData.footer?.text) {
+                footerParts.push(embedData.footer.text);
+            }
+            if (embedData.timestamp) {
+                const date = new Date(embedData.timestamp);
+                footerParts.push(date.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }));
+            }
+            embedContent += `*${footerParts.join(' ')}*`;
+        }
+
+        if (embedContent) {
+            const formattedContent = formatDiscordMarkdown(embedContent.trim());
+            embedHTML += `<div class="embed-description">${formattedContent}</div>`;
         }
 
         embedHTML += '</div>';
