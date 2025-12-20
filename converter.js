@@ -167,35 +167,35 @@ function parseContent(content) {
     return content;
 }
 
+function parseTimestamp(timestamp) {
+    const parts = timestamp.match(/(\d{4})\s+(\w{3})\s+(\d{1,2})\s+(\d{2}):(\d{2}):(\d{2})/);
+    if (!parts) return null;
+
+    const [, year, month, day, hour, minute, second] = parts;
+
+    const monthMap = {
+        'Jan': '01', 'Feb': '02', 'Mar': '03', 'Apr': '04',
+        'May': '05', 'Jun': '06', 'Jul': '07', 'Aug': '08',
+        'Sep': '09', 'Oct': '10', 'Nov': '11', 'Dec': '12'
+    };
+
+    const monthNum = monthMap[month];
+    if (!monthNum) return null;
+
+    const isoString = `${year}-${monthNum}-${day.padStart(2, '0')}T${hour}:${minute}:${second}`;
+    return new Date(isoString);
+}
+
 function shouldGroupMessage(currentMsg, prevMsg) {
     if (!prevMsg) return false;
     if (currentMsg.username !== prevMsg.username) return false;
 
-    const currentTime = new Date(currentMsg.timestamp);
-    const prevTime = new Date(prevMsg.timestamp);
+    const currentTime = parseTimestamp(currentMsg.timestamp);
+    const prevTime = parseTimestamp(prevMsg.timestamp);
 
-    // Debug logging
-    if (isNaN(currentTime.getTime()) || isNaN(prevTime.getTime())) {
-        console.warn('Invalid date parsing:', {
-            currentTimestamp: currentMsg.timestamp,
-            currentTime: currentTime.toString(),
-            currentValid: !isNaN(currentTime.getTime()),
-            prevTimestamp: prevMsg.timestamp,
-            prevTime: prevTime.toString(),
-            prevValid: !isNaN(prevTime.getTime())
-        });
-        return false;
-    }
+    if (!currentTime || !prevTime) return false;
 
     const diffMinutes = (currentTime - prevTime) / 1000 / 60;
-
-    console.log('Grouping check:', {
-        username: currentMsg.username,
-        currentTimestamp: currentMsg.timestamp,
-        prevTimestamp: prevMsg.timestamp,
-        diffMinutes: diffMinutes,
-        shouldGroup: diffMinutes < 5
-    });
 
     return diffMinutes < 5;
 }
