@@ -19,7 +19,9 @@ Expected format: `[2025 Dec 14 19:08:15] username#1234 (123456789012345678): Mes
 
 - All processing is client-side
 - Discord CDN URLs require a CORS proxy ([AllOrigins](https://allorigins.win/)) due to browser restrictions
-- CSS follows DRY principles with a single source of truth for transcript styles
+- Automatic retry with exponential backoff for failed requests (up to 3 attempts)
+- 30-second timeout prevents indefinite hangs
+- Mobile-optimized layout maximizes screen space
 
 ## License
 

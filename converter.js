@@ -15,14 +15,6 @@ function getUserColor(username) {
     return userColorMap.get(username);
 }
 
-function getAvatarColor(username) {
-    return getUserColor(username);
-}
-
-function getInitial(username) {
-    return username.charAt(0).toUpperCase();
-}
-
 function formatDiscordMarkdown(text) {
     text = text
         .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
@@ -221,26 +213,21 @@ ${getTranscriptStyles()}
 `;
 
     let prevMessage = null;
-    
+
     for (const msg of messages) {
         const grouped = shouldGroupMessage(msg, prevMessage);
         const groupedClass = grouped ? ' grouped' : '';
         const color = getUserColor(msg.username);
-        const avatarColor = getAvatarColor(msg.username);
-        const initial = getInitial(msg.username);
-        
+
         html += `        <div class="message${groupedClass}">
-            <span class="avatar" style="background-color: ${avatarColor}; color: #ffffff;">${initial}</span>
-            <div class="message-body">
-                <div class="message-header">
-                    <span class="author" style="color: ${color};">${msg.username}</span>
-                    <span class="timestamp">${msg.timestamp}</span>
-                </div>
-                <div class="message-content">${msg.content}</div>
+            <div class="message-header">
+                <span class="author" style="color: ${color};">${msg.username}</span>
+                <span class="timestamp">${msg.timestamp}</span>
             </div>
+            <div class="message-content">${msg.content}</div>
         </div>
 `;
-        
+
         prevMessage = msg;
     }
 
@@ -263,8 +250,14 @@ const compactUrlInput = document.getElementById('compactUrlInput');
 const compactUrlLoadBtn = document.getElementById('compactUrlLoadBtn');
 const compactFileBtn = document.getElementById('compactFileBtn');
 const compactFileInput = document.getElementById('compactFileInput');
+const loadingModal = document.getElementById('loadingModal');
+const errorModal = document.getElementById('errorModal');
+const errorMessage = document.getElementById('errorMessage');
+const errorCloseBtn = document.getElementById('errorCloseBtn');
+const errorRetryBtn = document.getElementById('errorRetryBtn');
 
 let currentHTML = '';
+let lastFailedUrl = null;
 
 uploadArea.addEventListener('click', () => {
     fileInput.click();
@@ -352,39 +345,96 @@ urlInput.addEventListener('keypress', (e) => {
     }
 });
 
-async function fetchTranscriptText(url) {
-    const isDiscordCDN = url.includes('cdn.discordapp.com') || url.includes('cdn.discord.com');
+errorCloseBtn.addEventListener('click', () => {
+    hideErrorModal();
+});
 
-    if (isDiscordCDN) {
-        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
-        const response = await fetch(proxyUrl);
-        if (!response.ok) {
-            throw new Error(`Failed to fetch: ${response.status} ${response.statusText}`);
-        }
-        return await response.text();
+errorRetryBtn.addEventListener('click', () => {
+    hideErrorModal();
+    if (lastFailedUrl) {
+        loadFromURL(lastFailedUrl);
     }
+});
+
+function showLoadingModal() {
+    loadingModal.classList.add('show');
+}
+
+function hideLoadingModal() {
+    loadingModal.classList.remove('show');
+}
+
+function showErrorModal(message) {
+    errorMessage.textContent = message;
+    errorModal.classList.add('show');
+}
+
+function hideErrorModal() {
+    errorModal.classList.remove('show');
+}
+
+async function fetchWithTimeout(url, timeout = 30000) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
 
     try {
-        const response = await fetch(url);
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
+        const response = await fetch(url, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        return response;
+    } catch (error) {
+        clearTimeout(timeoutId);
+        if (error.name === 'AbortError') {
+            throw new Error('Request timed out. The server took too long to respond.');
         }
-        return await response.text();
-    } catch (directFetchError) {
-        console.log('Direct fetch blocked, using CORS proxy...', directFetchError);
-        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
-        const proxyResponse = await fetch(proxyUrl);
-        if (!proxyResponse.ok) {
-            throw new Error(`Proxy fetch failed: ${proxyResponse.status} ${proxyResponse.statusText}`);
+        throw error;
+    }
+}
+
+async function fetchTranscriptText(url, retryCount = 0, maxRetries = 2) {
+    const isDiscordCDN = url.includes('cdn.discordapp.com') || url.includes('cdn.discord.com');
+
+    try {
+        if (isDiscordCDN) {
+            const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+            const response = await fetchWithTimeout(proxyUrl, 30000);
+            if (!response.ok) {
+                throw new Error(`Failed to fetch: ${response.status} ${response.statusText}`);
+            }
+            return await response.text();
         }
-        return await proxyResponse.text();
+
+        try {
+            const response = await fetchWithTimeout(url, 30000);
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            return await response.text();
+        } catch (directFetchError) {
+            console.log('Direct fetch blocked, using CORS proxy...', directFetchError);
+            const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+            const proxyResponse = await fetchWithTimeout(proxyUrl, 30000);
+            if (!proxyResponse.ok) {
+                throw new Error(`Proxy fetch failed: ${proxyResponse.status} ${proxyResponse.statusText}`);
+            }
+            return await proxyResponse.text();
+        }
+    } catch (error) {
+        if (retryCount < maxRetries) {
+            console.log(`Retry attempt ${retryCount + 1} of ${maxRetries}...`);
+            await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
+            return fetchTranscriptText(url, retryCount + 1, maxRetries);
+        }
+        throw error;
     }
 }
 
 async function loadFromURL(url) {
+    lastFailedUrl = url;
+
     try {
         urlLoadBtn.disabled = true;
         urlLoadBtn.textContent = 'Loading...';
+        showLoadingModal();
 
         const text = await fetchTranscriptText(url);
         const data = parseTranscript(text);
@@ -394,10 +444,13 @@ async function loadFromURL(url) {
         previewContainer.style.display = 'block';
         preview.innerHTML = currentHTML;
 
+        lastFailedUrl = null;
+
     } catch (error) {
-        alert('Error loading transcript from URL: ' + error.message);
         console.error(error);
+        showErrorModal(error.message || 'Failed to load transcript. Please check the URL and try again.');
     } finally {
+        hideLoadingModal();
         urlLoadBtn.disabled = false;
         urlLoadBtn.textContent = 'Load from URL';
     }
@@ -434,9 +487,12 @@ compactUrlInput.addEventListener('keypress', (e) => {
 });
 
 async function loadFromCompactURL(url) {
+    lastFailedUrl = url;
+
     try {
         compactUrlLoadBtn.disabled = true;
         compactUrlLoadBtn.textContent = 'Loading...';
+        showLoadingModal();
 
         const text = await fetchTranscriptText(url);
         const data = parseTranscript(text);
@@ -445,10 +501,13 @@ async function loadFromCompactURL(url) {
         preview.innerHTML = currentHTML;
         compactUrlInput.value = '';
 
+        lastFailedUrl = null;
+
     } catch (error) {
-        alert('Error loading transcript from URL: ' + error.message);
         console.error(error);
+        showErrorModal(error.message || 'Failed to load transcript. Please check the URL and try again.');
     } finally {
+        hideLoadingModal();
         compactUrlLoadBtn.disabled = false;
         compactUrlLoadBtn.textContent = 'Load';
     }

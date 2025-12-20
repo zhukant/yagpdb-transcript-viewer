@@ -218,6 +218,101 @@
             background-color: #4f545c;
         }
 
+        .loading-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.85);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .loading-modal.show {
+            display: flex;
+        }
+
+        .loading-content {
+            background-color: #2f3136;
+            border-radius: 8px;
+            padding: 32px 48px;
+            text-align: center;
+            max-width: 400px;
+        }
+
+        .loading-spinner {
+            width: 48px;
+            height: 48px;
+            border: 4px solid #4f545c;
+            border-top-color: #5865f2;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            color: #dcddde;
+            font-size: 16px;
+            margin-bottom: 8px;
+        }
+
+        .loading-subtext {
+            color: #72767d;
+            font-size: 14px;
+        }
+
+        .error-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.85);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .error-modal.show {
+            display: flex;
+        }
+
+        .error-content {
+            background-color: #2f3136;
+            border-radius: 8px;
+            padding: 24px;
+            max-width: 440px;
+            width: 90%;
+        }
+
+        .error-header {
+            color: #fff;
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        .error-message {
+            color: #dcddde;
+            font-size: 14px;
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+
+        .error-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
+
         @media (max-width: 768px) {
             .preview-header {
                 flex-direction: column;
@@ -246,6 +341,14 @@
 
             .divider-vertical {
                 display: none;
+            }
+
+            .loading-content {
+                padding: 24px 32px;
+            }
+
+            .error-actions {
+                flex-direction: column;
             }
         }
     </style>
@@ -308,8 +411,6 @@
             padding: 2px 16px;
             margin-top: 17px;
             position: relative;
-            display: flex;
-            gap: 16px;
         }
 
         .message:hover {
@@ -318,33 +419,10 @@
 
         .message.grouped {
             margin-top: 0;
-            padding-left: 72px;
-        }
-
-        .message.grouped .avatar {
-            display: none;
         }
 
         .message.grouped .message-header {
             display: none;
-        }
-
-        .avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 600;
-            flex-shrink: 0;
-            font-size: 18px;
-            margin-top: 2px;
-        }
-
-        .message-body {
-            flex: 1;
-            min-width: 0;
         }
 
         .message-header {
@@ -507,6 +585,25 @@
             </div>
         </div>
         <div id="preview"></div>
+    </div>
+
+    <div class="loading-modal" id="loadingModal">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">Loading transcript...</div>
+            <div class="loading-subtext">This may take a few moments</div>
+        </div>
+    </div>
+
+    <div class="error-modal" id="errorModal">
+        <div class="error-content">
+            <div class="error-header">Error Loading Transcript</div>
+            <div class="error-message" id="errorMessage"></div>
+            <div class="error-actions">
+                <button class="button secondary" id="errorCloseBtn">Close</button>
+                <button class="button" id="errorRetryBtn">Retry</button>
+            </div>
+        </div>
     </div>
 
     <script src="converter.js"></script>
