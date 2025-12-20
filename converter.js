@@ -93,13 +93,11 @@ function parseTranscript(text) {
                 messages.push(currentMessage);
             }
 
-            const [, timestamp, username, discriminator, userid, content] = messageMatch;
+            const [, timestamp, username, , , content] = messageMatch;
 
             currentMessage = {
                 timestamp: timestamp,
                 username: username,
-                discriminator: discriminator,
-                userid: userid,
                 content: content
             };
         } else if (currentMessage) {
@@ -201,11 +199,7 @@ function shouldGroupMessage(currentMsg, prevMsg) {
 }
 
 function getTranscriptStyles() {
-    const styleElement = document.getElementById('transcript-styles');
-    if (styleElement) {
-        return styleElement.textContent;
-    }
-    return '';
+    return document.getElementById('transcript-styles').textContent;
 }
 
 function generateHTML(data) {
@@ -351,19 +345,13 @@ downloadBtn.addEventListener('click', () => {
 
 urlLoadBtn.addEventListener('click', () => {
     const url = urlInput.value.trim();
-    if (!url) {
-        alert('Please enter a URL');
-        return;
-    }
-    loadFromURL(url);
+    if (url) loadFromURL(url);
 });
 
 urlInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {
         const url = urlInput.value.trim();
-        if (url) {
-            loadFromURL(url);
-        }
+        if (url) loadFromURL(url);
     }
 });
 
@@ -432,7 +420,6 @@ async function fetchTranscriptText(url, retryCount = 0, maxRetries = 2) {
             }
             return await response.text();
         } catch (directFetchError) {
-            console.log('Direct fetch blocked, using CORS proxy...', directFetchError);
             const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
             const proxyResponse = await fetchWithTimeout(proxyUrl, 30000);
             if (!proxyResponse.ok) {
@@ -442,7 +429,6 @@ async function fetchTranscriptText(url, retryCount = 0, maxRetries = 2) {
         }
     } catch (error) {
         if (retryCount < maxRetries) {
-            console.log(`Retry attempt ${retryCount + 1} of ${maxRetries}...`);
             await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
             return fetchTranscriptText(url, retryCount + 1, maxRetries);
         }
@@ -492,19 +478,13 @@ compactFileInput.addEventListener('change', (e) => {
 
 compactUrlLoadBtn.addEventListener('click', () => {
     const url = compactUrlInput.value.trim();
-    if (!url) {
-        alert('Please enter a URL');
-        return;
-    }
-    loadFromCompactURL(url);
+    if (url) loadFromCompactURL(url);
 });
 
 compactUrlInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {
         const url = compactUrlInput.value.trim();
-        if (url) {
-            loadFromCompactURL(url);
-        }
+        if (url) loadFromCompactURL(url);
     }
 });
 
