@@ -170,11 +170,33 @@ function parseContent(content) {
 function shouldGroupMessage(currentMsg, prevMsg) {
     if (!prevMsg) return false;
     if (currentMsg.username !== prevMsg.username) return false;
-    
+
     const currentTime = new Date(currentMsg.timestamp);
     const prevTime = new Date(prevMsg.timestamp);
+
+    // Debug logging
+    if (isNaN(currentTime.getTime()) || isNaN(prevTime.getTime())) {
+        console.warn('Invalid date parsing:', {
+            currentTimestamp: currentMsg.timestamp,
+            currentTime: currentTime.toString(),
+            currentValid: !isNaN(currentTime.getTime()),
+            prevTimestamp: prevMsg.timestamp,
+            prevTime: prevTime.toString(),
+            prevValid: !isNaN(prevTime.getTime())
+        });
+        return false;
+    }
+
     const diffMinutes = (currentTime - prevTime) / 1000 / 60;
-    
+
+    console.log('Grouping check:', {
+        username: currentMsg.username,
+        currentTimestamp: currentMsg.timestamp,
+        prevTimestamp: prevMsg.timestamp,
+        diffMinutes: diffMinutes,
+        shouldGroup: diffMinutes < 5
+    });
+
     return diffMinutes < 5;
 }
 
