@@ -23,6 +23,57 @@ function getInitial(username) {
     return username.charAt(0).toUpperCase();
 }
 
+function formatDiscordMarkdown(text) {
+    text = text
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.+?)\*/g, '<em>$1</em>')
+        .replace(/__(.+?)__/g, '<u>$1</u>')
+        .replace(/~~(.+?)~~/g, '<del>$1</del>')
+        .replace(/`([^`]+)`/g, '<code>$1</code>');
+
+    text = text.replace(/<@!?(\d+)>/g, '<span style="color: #5865f2; background-color: rgba(88, 101, 242, 0.15); padding: 0 2px; border-radius: 3px;">@user</span>');
+    text = text.replace(/<#(\d+)>/g, '<span style="color: #5865f2;">#channel</span>');
+    text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="embed-link">$1</a>');
+
+    const lines = text.split('\n');
+    let inQuote = false;
+    let result = [];
+    let quoteLines = [];
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const isQuoteLine = line.trimStart().startsWith('&gt;') || line.trimStart().startsWith('>');
+
+        if (isQuoteLine) {
+            if (!inQuote) {
+                inQuote = true;
+                quoteLines = [];
+            }
+            const quotedText = line.replace(/^\s*(&gt;|>)\s?/, '');
+            quoteLines.push(quotedText);
+        } else {
+            if (inQuote) {
+                const blockquote = '<div class="blockquote">' + quoteLines.join('<br>') + '</div>';
+                if (line) {
+                    result.push(blockquote + line);
+                } else {
+                    result.push(blockquote);
+                }
+                inQuote = false;
+                quoteLines = [];
+            } else {
+                result.push(line);
+            }
+        }
+    }
+
+    if (inQuote) {
+        result.push('<div class="blockquote">' + quoteLines.join('<br>') + '</div>');
+    }
+
+    return result.join('<br>');
+}
+
 function parseTranscript(text) {
     const lines = text.split('\n');
     const messages = [];
@@ -43,27 +94,29 @@ function parseTranscript(text) {
     for (let i = 1; i < lines.length; i++) {
         const line = lines[i];
         const messageMatch = line.match(/^\[(.+?)\] (.+?)(#\d+)? \((\d+)\): (.*)$/);
-        
+
         if (messageMatch) {
             if (currentMessage) {
+                currentMessage.content = parseContent(currentMessage.content);
                 messages.push(currentMessage);
             }
 
             const [, timestamp, username, discriminator, userid, content] = messageMatch;
-            
+
             currentMessage = {
                 timestamp: timestamp,
                 username: username,
                 discriminator: discriminator,
                 userid: userid,
-                content: parseContent(content)
+                content: content
             };
-        } else if (currentMessage && line.trim() !== '') {
-            currentMessage.content += '\n' + parseContent(line);
+        } else if (currentMessage) {
+            currentMessage.content += '\n' + line;
         }
     }
 
     if (currentMessage) {
+        currentMessage.content = parseContent(currentMessage.content);
         messages.push(currentMessage);
     }
 
@@ -73,32 +126,52 @@ function parseTranscript(text) {
 function parseContent(content) {
     // Decode unicode escapes
     content = content.replace(/\\u003c/g, '<').replace(/\\u003e/g, '>');
-    
-    // Remove JSON wrapper if present (for bot messages)
-    if (content.startsWith(', {')) {
+    let embedData = null;
+    const jsonMatch = content.match(/^(.*?)(?:,\s*)?(\{.*\})\s*$/);
+
+    if (jsonMatch) {
         try {
-            const jsonMatch = content.match(/^\s*,\s*(\{.*\})\s*$/);
-            if (jsonMatch) {
-                const parsed = JSON.parse(jsonMatch[1]);
-                if (parsed.description) {
-                    content = parsed.description;
-                }
+            const parsed = JSON.parse(jsonMatch[2]);
+            if (parsed.type === 'rich') {
+                embedData = parsed;
+                content = jsonMatch[1].trim();
             }
-        } catch (e) {
-            // ignore
-        }
+        } catch (e) {}
     }
-    
-    content = content
-        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-        .replace(/\*(.+?)\*/g, '<em>$1</em>')
-        .replace(/__(.+?)__/g, '<u>$1</u>')
-        .replace(/~~(.+?)~~/g, '<del>$1</del>')
-        .replace(/`([^`]+)`/g, '<code>$1</code>');
-    
-    content = content.replace(/<@!?(\d+)>/g, '<span style="color: #5865f2; background-color: rgba(88, 101, 242, 0.15); padding: 0 2px; border-radius: 3px;">@user</span>');
-    content = content.replace(/<#(\d+)>/g, '<span style="color: #5865f2;">#channel</span>');
-    
+
+    content = formatDiscordMarkdown(content);
+
+    if (embedData) {
+        let embedHTML = '<div class="embed">';
+
+        if (embedData.color) {
+            const colorHex = '#' + embedData.color.toString(16).padStart(6, '0');
+            embedHTML = `<div class="embed" style="border-left-color: ${colorHex};">`;
+        }
+
+        if (embedData.author && embedData.author.name) {
+            embedHTML += `<div class="embed-author">`;
+            if (embedData.author.icon_url || embedData.author.proxy_icon_url) {
+                const iconUrl = embedData.author.proxy_icon_url || embedData.author.icon_url;
+                embedHTML += `<img class="embed-author-icon" src="${iconUrl}" alt="">`;
+            }
+            embedHTML += `<span class="embed-author-name">${embedData.author.name}</span>`;
+            embedHTML += `</div>`;
+        }
+
+        if (embedData.description) {
+            const formattedDesc = formatDiscordMarkdown(embedData.description);
+            embedHTML += `<div class="embed-description">${formattedDesc}</div>`;
+        }
+
+        embedHTML += '</div>';
+
+        if (content) {
+            return content + embedHTML;
+        }
+        return embedHTML;
+    }
+
     return content;
 }
 
@@ -194,6 +267,7 @@ function generateHTML(data) {
         }
 
         .message.grouped .avatar {
+            height: 0px;
             visibility: hidden;
         }
 
@@ -241,7 +315,11 @@ function generateHTML(data) {
             color: #dcddde;
             word-wrap: break-word;
             line-height: 1.375rem;
-            white-space: pre-wrap;
+            min-height: 0;
+        }
+
+        .message-content:empty {
+            display: none;
         }
 
         .message-content code {
@@ -271,6 +349,62 @@ function generateHTML(data) {
 
         .divider span {
             padding: 0 16px;
+        }
+
+        .embed {
+            background-color: #2f3136;
+            border-left: 4px solid #202225;
+            border-radius: 4px;
+            padding: 8px 12px;
+            margin-top: 4px;
+            margin-bottom: 0;
+            max-width: 520px;
+        }
+
+        .message.grouped .embed {
+            margin-top: 0;
+        }
+
+        .embed-author {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .embed-author-icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .embed-author-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: #ffffff;
+        }
+
+        .embed-description {
+            font-size: 14px;
+            color: #dcddde;
+            line-height: 1.375rem;
+            white-space: pre-wrap;
+        }
+
+        .embed-link {
+            color: #00b0f4;
+            text-decoration: none;
+        }
+
+        .embed-link:hover {
+            text-decoration: underline;
+        }
+
+        .blockquote {
+            border-left: 4px solid #4e5058;
+            padding-left: 12px;
+            margin: 4px 0;
+            color: #b5bac1;
         }
     </style>
 </head>

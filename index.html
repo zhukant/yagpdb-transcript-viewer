@@ -178,6 +178,7 @@
         }
 
         .message.grouped .avatar {
+            height: 0px;
             visibility: hidden;
         }
 
@@ -230,7 +231,11 @@
             color: #dcddde;
             word-wrap: break-word;
             line-height: 1.375rem;
-            white-space: pre-wrap;
+            min-height: 0;
+        }
+
+        .message-content:empty {
+            display: none;
         }
 
         .divider {
@@ -266,6 +271,70 @@
             text-align: center;
             padding: 40px;
             color: #b9bbbe;
+        }
+
+        .embed {
+            background-color: #2f3136;
+            border-left: 4px solid #202225;
+            border-radius: 4px;
+            padding: 8px 12px;
+            margin-top: 4px;
+            margin-bottom: 0;
+            max-width: 520px;
+        }
+
+        .message.grouped .embed {
+            margin-top: 0;
+        }
+
+        .embed-author {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .embed-author-icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .embed-author-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: #ffffff;
+        }
+
+        .embed-description {
+            font-size: 14px;
+            color: #dcddde;
+            line-height: 1.375rem;
+            white-space: pre-wrap;
+        }
+
+        .embed-link {
+            color: #00b0f4;
+            text-decoration: none;
+        }
+
+        .embed-link:hover {
+            text-decoration: underline;
+        }
+
+        .blockquote {
+            border-left: 4px solid #4e5058;
+            padding-left: 12px;
+            margin: 4px 0;
+            color: #b5bac1;
+        }
+
+        .message-content code {
+            background-color: #202225;
+            border-radius: 3px;
+            padding: 2px 4px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.875rem;
         }
     </style>
 </head>
