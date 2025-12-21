@@ -15,7 +15,7 @@ function getUserColor(username) {
     return userColorMap.get(username);
 }
 
-function formatDiscordMarkdown(text) {
+function formatDiscordMarkdown(text, userIdMap = null) {
     text = text
         .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
         .replace(/\*(.+?)\*/g, '<em>$1</em>')
@@ -23,7 +23,14 @@ function formatDiscordMarkdown(text) {
         .replace(/~~(.+?)~~/g, '<del>$1</del>')
         .replace(/`([^`]+)`/g, '<code>$1</code>');
 
-    text = text.replace(/<@!?(\d+)>/g, '<span style="color: #5865f2; background-color: rgba(88, 101, 242, 0.15); padding: 0 2px; border-radius: 3px;">@user</span>');
+    text = text.replace(/<@!?(\d+)>/g, (_, userId) => {
+        const username = userIdMap && userIdMap.get(userId);
+        const displayName = username ? `@${username}` : '@user';
+        const discordUrl = `https://discord.com/users/${userId}`;
+        return `<a href="${discordUrl}" class="embed-link" style="color: #5865f2; background-color: rgba(88, 101, 242, 0.15); padding: 0 2px; border-radius: 3px; text-decoration: none;">${displayName}</a>`;
+    });
+
+    text = text.replace(/<@&(\d+)>/g, '<span style="color: #5865f2; background-color: rgba(88, 101, 242, 0.15); padding: 0 2px; border-radius: 3px;">@role</span>');
     text = text.replace(/<#(\d+)>/g, '<span style="color: #5865f2;">#channel</span>');
     text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="embed-link">$1</a>');
 
@@ -71,6 +78,7 @@ function parseTranscript(text) {
     const messages = [];
     let currentMessage = null;
     let ticketInfo = null;
+    const userIdMap = new Map();
 
     const headerMatch = lines[0].match(/Transcript of ticket #(\d+) - (.+?), opened by (.+?) at (.+?), closed at (.+?)\./);
     if (headerMatch) {
@@ -88,8 +96,21 @@ function parseTranscript(text) {
         const messageMatch = line.match(/^\[(.+?)\] (.+?)(#\d+)? \((\d+)\): (.*)$/);
 
         if (messageMatch) {
+            const [, , username, , userId] = messageMatch;
+
+            if (userId && username) {
+                userIdMap.set(userId, username);
+            }
+        }
+    }
+
+    for (let i = 1; i < lines.length; i++) {
+        const line = lines[i];
+        const messageMatch = line.match(/^\[(.+?)\] (.+?)(#\d+)? \((\d+)\): (.*)$/);
+
+        if (messageMatch) {
             if (currentMessage) {
-                currentMessage.content = parseContent(currentMessage.content);
+                currentMessage.content = parseContent(currentMessage.content, userIdMap);
                 messages.push(currentMessage);
             }
 
@@ -106,16 +127,14 @@ function parseTranscript(text) {
     }
 
     if (currentMessage) {
-        currentMessage.content = parseContent(currentMessage.content);
+        currentMessage.content = parseContent(currentMessage.content, userIdMap);
         messages.push(currentMessage);
     }
 
     return { ticketInfo, messages };
 }
 
-function parseContent(content) {
-    // Decode unicode escapes
-    content = content.replace(/\\u003c/g, '<').replace(/\\u003e/g, '>');
+function parseContent(content, userIdMap = null) {
     let embedData = null;
     const jsonMatch = content.match(/^(.*?)(?:,\s*)?(\{.*\})\s*$/);
 
@@ -129,7 +148,8 @@ function parseContent(content) {
         } catch (e) {}
     }
 
-    content = formatDiscordMarkdown(content);
+    content = content.replace(/\\u003c/g, '<').replace(/\\u003e/g, '>');
+    content = formatDiscordMarkdown(content, userIdMap);
 
     if (embedData) {
         let embedHTML = '<div class="embed">';
@@ -139,7 +159,6 @@ function parseContent(content) {
             embedHTML = `<div class="embed" style="border-left-color: ${colorHex};">`;
         }
 
-        // Generic embed content renderer
         let embedContent = '';
 
         if (embedData.author?.name) {
@@ -178,7 +197,7 @@ function parseContent(content) {
         }
 
         if (embedContent) {
-            const formattedContent = formatDiscordMarkdown(embedContent.trim());
+            const formattedContent = formatDiscordMarkdown(embedContent.trim(), userIdMap);
             embedHTML += `<div class="embed-description">${formattedContent}</div>`;
         }
 
@@ -226,12 +245,21 @@ function shouldGroupMessage(currentMsg, prevMsg) {
     return diffMinutes < 5;
 }
 
-function getTranscriptStyles() {
-    return document.getElementById('transcript-styles').textContent;
+let transcriptStylesCache = null;
+
+async function getTranscriptStyles() {
+    if (transcriptStylesCache) {
+        return transcriptStylesCache;
+    }
+
+    const response = await fetch('transcript.css');
+    transcriptStylesCache = await response.text();
+    return transcriptStylesCache;
 }
 
-function generateHTML(data) {
+async function generateHTML(data) {
     const { ticketInfo, messages } = data;
+    const styles = await getTranscriptStyles();
 
     let html = `<!DOCTYPE html>
 <html lang="en">
@@ -240,7 +268,7 @@ function generateHTML(data) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ticket #${ticketInfo ? ticketInfo.ticketNumber : 'Unknown'}</title>
     <style>
-${getTranscriptStyles()}
+${styles}
     </style>
 </head>
 <body>
@@ -340,16 +368,16 @@ function handleFile(file) {
 
     const reader = new FileReader();
     
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
         try {
             const text = e.target.result;
             const data = parseTranscript(text);
-            currentHTML = generateHTML(data);
-            
+            currentHTML = await generateHTML(data);
+
             uploadContainer.style.display = 'none';
             previewContainer.style.display = 'block';
             preview.innerHTML = currentHTML;
-            
+
         } catch (error) {
             alert('Error parsing transcript: ' + error.message);
             console.error(error);
@@ -474,7 +502,7 @@ async function loadFromURL(url) {
 
         const text = await fetchTranscriptText(url);
         const data = parseTranscript(text);
-        currentHTML = generateHTML(data);
+        currentHTML = await generateHTML(data);
 
         uploadContainer.style.display = 'none';
         previewContainer.style.display = 'block';
@@ -526,7 +554,7 @@ async function loadFromCompactURL(url) {
 
         const text = await fetchTranscriptText(url);
         const data = parseTranscript(text);
-        currentHTML = generateHTML(data);
+        currentHTML = await generateHTML(data);
 
         preview.innerHTML = currentHTML;
         compactUrlInput.value = '';
