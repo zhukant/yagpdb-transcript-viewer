@@ -439,6 +439,35 @@ function hideErrorModal() {
     errorModal.classList.remove('show');
 }
 
+function isValidDiscordCDNUrl(url) {
+    try {
+        const urlObj = new URL(url);
+        return urlObj.hostname === 'cdn.discordapp.com' || urlObj.hostname === 'cdn.discord.com';
+    } catch {
+        return false;
+    }
+}
+
+function isValidTranscriptContent(text) {
+    if (!text || text.trim().length === 0) {
+        return false;
+    }
+
+    const lines = text.split('\n');
+    const firstLine = lines[0] || '';
+
+    if (firstLine.includes('This content is no longer available')) {
+        return false;
+    }
+
+    if (text.includes('<!DOCTYPE html>') || text.includes('<html')) {
+        return false;
+    }
+
+    const transcriptHeaderPattern = /Transcript of ticket #\d+/;
+    return transcriptHeaderPattern.test(firstLine);
+}
+
 async function fetchWithTimeout(url, timeout = 30000) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
@@ -457,34 +486,30 @@ async function fetchWithTimeout(url, timeout = 30000) {
 }
 
 async function fetchTranscriptText(url, retryCount = 0, maxRetries = 2) {
-    const isDiscordCDN = url.includes('cdn.discordapp.com') || url.includes('cdn.discord.com');
+    if (!isValidDiscordCDNUrl(url)) {
+        throw new Error('Invalid URL. Please provide a valid Discord CDN link (cdn.discordapp.com or cdn.discord.com).');
+    }
 
     try {
-        if (isDiscordCDN) {
-            const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
-            const response = await fetchWithTimeout(proxyUrl, 30000);
-            if (!response.ok) {
-                throw new Error(`Failed to fetch: ${response.status} ${response.statusText}`);
-            }
-            return await response.text();
+        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+        const response = await fetchWithTimeout(proxyUrl, 30000);
+
+        if (!response.ok) {
+            throw new Error(`Failed to fetch transcript: ${response.status} ${response.statusText}`);
         }
 
-        try {
-            const response = await fetchWithTimeout(url, 30000);
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
+        const text = await response.text();
+
+        if (!isValidTranscriptContent(text)) {
+            if (text.includes('This content is no longer available')) {
+                throw new Error('This transcript is no longer available on Discord CDN.');
             }
-            return await response.text();
-        } catch (directFetchError) {
-            const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
-            const proxyResponse = await fetchWithTimeout(proxyUrl, 30000);
-            if (!proxyResponse.ok) {
-                throw new Error(`Proxy fetch failed: ${proxyResponse.status} ${proxyResponse.statusText}`);
-            }
-            return await proxyResponse.text();
+            throw new Error('The URL does not point to a valid transcript file. Please check the link and try again.');
         }
+
+        return text;
     } catch (error) {
-        if (retryCount < maxRetries) {
+        if (retryCount < maxRetries && !error.message.includes('Invalid URL') && !error.message.includes('no longer available') && !error.message.includes('not point to a valid transcript')) {
             await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
             return fetchTranscriptText(url, retryCount + 1, maxRetries);
         }
