@@ -1,27 +1,23 @@
 # Discord Ticket Transcript Converter
 
-Browser tool to convert YAGPDB ticket transcripts into standalone Discord-styled HTML.
+Browser tool for converting YAGPDB ticket transcripts into Discord-styled HTML.
 
 ## Usage
 
-Upload a transcript file or paste a URL to a Discord CDN-hosted transcript:
-- Drag and drop a `.txt` file
-- Click to browse for a file
-- Paste a Discord CDN URL
-
-After conversion, download the HTML or load another transcript without returning to the home page.
+Upload a transcript file or paste a Discord CDN URL. After conversion, download the standalone HTML or load another transcript from the viewer toolbar.
 
 ## Input Format
 
 Expected format: `[2025 Dec 14 19:08:15] username#1234 (123456789012345678): Message content`
 
-## Technical Details
+## Technical Notes
 
-- All processing is client-side
+- All processing happens client-side
 - Discord CDN URLs require a CORS proxy ([AllOrigins](https://allorigins.win/)) due to browser restrictions
-- Automatic retry with exponential backoff for failed requests (up to 3 attempts)
-- 30-second timeout prevents indefinite hangs
-- Mobile-optimized layout maximizes screen space
+- Automatic retry with exponential backoff for network timeouts (up to 3 attempts)
+- 15-second timeout per request
+- Mobile-responsive with collapsible toolbar
+- Light/dark theme support with localStorage persistence
 
 ## License
 

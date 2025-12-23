@@ -7,14 +7,31 @@
     <link rel="stylesheet" href="app.css">
 </head>
 <body>
+    <svg style="display: none;">
+        <defs>
+            <g id="sun-icon">
+                <path d="M8 11c1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3 1.34 3 3 3zm0-8c.28 0 .5-.22.5-.5v-1c0-.28-.22-.5-.5-.5s-.5.22-.5.5v1c0 .28.22.5.5.5zm0 10c-.28 0-.5.22-.5.5v1c0 .28.22.5.5.5s.5-.22.5-.5v-1c0-.28-.22-.5-.5-.5zm5.5-5.5c0-.28.22-.5.5-.5h1c.28 0 .5.22.5.5s-.22.5-.5.5h-1c-.28 0-.5-.22-.5-.5zm-12 0c0-.28.22-.5.5-.5h1c.28 0 .5.22.5.5s-.22.5-.5.5h-1c-.28 0-.5-.22-.5-.5zm10.3 3.8l.7.7c.2.2.2.5 0 .7-.1.1-.2.1-.35.1s-.26-.05-.35-.15l-.7-.7c-.2-.2-.2-.5 0-.7.2-.2.5-.2.7 0zm-8.5-8.5l.7.7c.2.2.2.5 0 .7-.1.1-.2.1-.35.1s-.26-.05-.35-.15l-.7-.7c-.2-.2-.2-.5 0-.7.2-.2.5-.2.7 0zm.7 8.5c-.2-.2-.5-.2-.7 0-.2.2-.2.5 0 .7l.7.7c.1.1.2.15.35.15s.26-.05.35-.15c.2-.2.2-.5 0-.7l-.7-.7zm8.5-8.5c.2-.2.5-.2.7 0 .2.2.2.5 0 .7l-.7.7c-.1.1-.2.15-.35.15s-.26-.05-.35-.15c-.2-.2-.2-.5 0-.7l.7-.7z"/>
+            </g>
+            <g id="moon-icon">
+                <path d="M8 0a8 8 0 108 8 8.54 8.54 0 01-1.5-.14A5.5 5.5 0 019.36.14 8.48 8.48 0 018 0z"/>
+            </g>
+        </defs>
+    </svg>
+
+    <button class="theme-toggle theme-toggle-landing" id="themeToggleLanding" aria-label="Toggle theme" title="Toggle theme">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+            <use href="#sun-icon" class="sun-icon"/>
+            <use href="#moon-icon" class="moon-icon"/>
+        </svg>
+    </button>
+
     <div class="upload-container" id="uploadContainer">
         <h1>Discord Ticket Transcript Converter</h1>
         <p>Convert YAGPDB ticket transcripts to Discord-styled HTML</p>
 
         <div class="upload-area" id="uploadArea">
             <div class="upload-icon">📄</div>
-            <div class="upload-text">Drop your transcript file here</div>
-            <div class="upload-hint">or click to browse</div>
+            <div class="upload-text">Select or drop your transcript file</div>
             <input type="file" id="fileInput" accept=".txt">
         </div>
 
@@ -26,18 +43,36 @@
         </div>
     </div>
 
-    <div class="preview-container" id="previewContainer">
-        <div class="preview-header">
-            <div class="preview-title">Preview</div>
-            <div class="preview-actions">
-                <input type="text" id="compactUrlInput" class="compact-url-input" placeholder="Paste URL to load another...">
-                <button class="button compact" id="compactUrlLoadBtn">Load</button>
-                <button class="button compact secondary" id="compactFileBtn">Browse</button>
+    <div class="viewer-container" id="viewerContainer">
+        <div class="viewer-toolbar-container">
+            <div class="viewer-toolbar-container-controls">
+                <button class="viewer-toolbar-toggle" id="viewerToolbarToggle" aria-label="Toggle controls" title="Toggle controls">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                </button>
+                <button class="button compact secondary theme-toggle theme-toggle-viewer-mobile" id="themeToggleViewerMobile" aria-label="Toggle theme" title="Toggle theme">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                        <use href="#sun-icon" class="sun-icon"/>
+                        <use href="#moon-icon" class="moon-icon"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="viewer-toolbar" id="viewerToolbar">
+                <input type="text" id="toolbarUrlInput" class="toolbar-url-input" placeholder="Paste URL to load another...">
+                <button class="button compact" id="toolbarUrlLoadBtn">Load</button>
+                <button class="button compact secondary" id="toolbarFileBtn">Browse</button>
                 <button class="button compact" id="downloadBtn">Download HTML</button>
-                <input type="file" id="compactFileInput" accept=".txt" style="display: none;">
+                <button class="button compact secondary theme-toggle theme-toggle-viewer-desktop" id="themeToggleViewerDesktop" aria-label="Toggle theme" title="Toggle theme">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                        <use href="#sun-icon" class="sun-icon"/>
+                        <use href="#moon-icon" class="moon-icon"/>
+                    </svg>
+                </button>
+                <input type="file" id="toolbarFileInput" accept=".txt" style="display: none;">
             </div>
         </div>
-        <div id="preview"></div>
+        <div id="viewerContent"></div>
     </div>
 
     <div class="loading-modal" id="loadingModal">

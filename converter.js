@@ -1,7 +1,13 @@
-const USER_COLORS = [
+const USER_COLORS_DARK = [
     '#ed4245', '#3ba55c', '#fee75c', '#f26522', '#1abc9c',
     '#5865f2', '#e91e63', '#9c27b0', '#3f51b5', '#00bcd4',
     '#4caf50', '#ff9800', '#795548', '#607d8b'
+];
+
+const USER_COLORS_LIGHT = [
+    '#d32f2f', '#2e7d32', '#f57c00', '#e64a19', '#00897b',
+    '#3f51b5', '#c2185b', '#7b1fa2', '#303f9f', '#0277bd',
+    '#388e3c', '#ef6c00', '#5d4037', '#455a64'
 ];
 
 const userColorMap = new Map();
@@ -9,10 +15,13 @@ let colorIndex = 0;
 
 function getUserColor(username) {
     if (!userColorMap.has(username)) {
-        userColorMap.set(username, USER_COLORS[colorIndex % USER_COLORS.length]);
+        userColorMap.set(username, colorIndex);
         colorIndex++;
     }
-    return userColorMap.get(username);
+    const index = userColorMap.get(username);
+    const isLightTheme = document.body.getAttribute('data-theme') === 'light';
+    const colors = isLightTheme ? USER_COLORS_LIGHT : USER_COLORS_DARK;
+    return colors[index % colors.length];
 }
 
 function formatDiscordMarkdown(text, userIdMap = null) {
@@ -48,6 +57,7 @@ function formatDiscordMarkdown(text, userIdMap = null) {
                 inQuote = true;
                 quoteLines = [];
             }
+            // Remove quote marker and optional space: "  > quoted text" → "quoted text"
             const quotedText = line.replace(/^\s*(&gt;|>)\s?/, '');
             quoteLines.push(quotedText);
         } else {
@@ -82,21 +92,26 @@ function parseTranscript(text) {
 
     const headerMatch = lines[0].match(/Transcript of ticket #(\d+) - (.+?), opened by (.+?) at (.+?), closed at (.+?)\./);
     if (headerMatch) {
-        ticketInfo = {
-            ticketNumber: headerMatch[1],
-            ticketType: headerMatch[2],
-            openedBy: headerMatch[3],
-            openedAt: headerMatch[4],
-            closedAt: headerMatch[5]
-        };
+        const [, ticketNumber, ticketType, openedBy, openedAt, closedAt] = headerMatch;
+        ticketInfo = { ticketNumber, ticketType, openedBy, openedAt, closedAt };
     }
+
+    // Regex to match message header: [timestamp] username#0000 (userId): message content
+    const MESSAGE_HEADER_REGEX = /^\[(.+?)\] (.+?)(#\d+)? \((\d+)\): (.*)$/;
+
+    const HEADER_TIMESTAMP = 1;
+    const HEADER_USERNAME = 2;
+    // const HEADER_DISCRIMINATOR = 3;
+    const HEADER_USERID = 4;
+    const HEADER_CONTENT = 5;
 
     for (let i = 1; i < lines.length; i++) {
         const line = lines[i];
-        const messageMatch = line.match(/^\[(.+?)\] (.+?)(#\d+)? \((\d+)\): (.*)$/);
+        const match = line.match(MESSAGE_HEADER_REGEX);
 
-        if (messageMatch) {
-            const [, , username, , userId] = messageMatch;
+        if (match) {
+            const username = match[HEADER_USERNAME];
+            const userId = match[HEADER_USERID];
 
             if (userId && username) {
                 userIdMap.set(userId, username);
@@ -106,20 +121,18 @@ function parseTranscript(text) {
 
     for (let i = 1; i < lines.length; i++) {
         const line = lines[i];
-        const messageMatch = line.match(/^\[(.+?)\] (.+?)(#\d+)? \((\d+)\): (.*)$/);
+        const match = line.match(MESSAGE_HEADER_REGEX);
 
-        if (messageMatch) {
+        if (match) {
             if (currentMessage) {
                 currentMessage.content = parseContent(currentMessage.content, userIdMap);
                 messages.push(currentMessage);
             }
 
-            const [, timestamp, username, , , content] = messageMatch;
-
             currentMessage = {
-                timestamp: timestamp,
-                username: username,
-                content: content
+                timestamp: match[HEADER_TIMESTAMP],
+                username: match[HEADER_USERNAME],
+                content: match[HEADER_CONTENT]
             };
         } else if (currentMessage) {
             currentMessage.content += '\n' + line;
@@ -213,6 +226,7 @@ function parseContent(content, userIdMap = null) {
 }
 
 function parseTimestamp(timestamp) {
+    // Parse YAGPDB timestamp format: "2025 Dec 19 18:24:05"
     const parts = timestamp.match(/(\d{4})\s+(\w{3})\s+(\d{1,2})\s+(\d{2}):(\d{2}):(\d{2})/);
     if (!parts) return null;
 
@@ -257,71 +271,112 @@ async function getTranscriptStyles() {
     return transcriptStylesCache;
 }
 
-async function generateHTML(data) {
-    const { ticketInfo, messages } = data;
-    const styles = await getTranscriptStyles();
+function generateHeaderHTML(ticketInfo) {
+    const ticketNumber = ticketInfo ? ticketInfo.ticketNumber : 'Unknown';
+    const ticketType = ticketInfo ? ticketInfo.ticketType : 'Transcript';
+    const metadata = ticketInfo
+        ? `Created for ${ticketInfo.openedBy} at ${ticketInfo.openedAt} • Closed at ${ticketInfo.closedAt}`
+        : '';
 
-    let html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ticket #${ticketInfo ? ticketInfo.ticketNumber : 'Unknown'}</title>
-    <style>
-${styles}
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="archive-header">
-            <h1>Ticket #${ticketInfo ? ticketInfo.ticketNumber : 'Unknown'} - ${ticketInfo ? ticketInfo.ticketType : 'Transcript'}</h1>
-            <div class="metadata">
-                ${ticketInfo ? `Opened by ${ticketInfo.openedBy} at ${ticketInfo.openedAt} • Closed at ${ticketInfo.closedAt}` : ''}
-            </div>
-        </div>
+    return `<div class="archive-header">
+            <h1>Ticket #${ticketNumber} - ${ticketType}</h1>
+            <div class="metadata">${metadata}</div>
+        </div>`;
+}
 
-        <div class="channel-name">ticket-${ticketInfo ? ticketInfo.ticketNumber : 'unknown'}</div>
+function generateMessageHTML(msg, prevMessage) {
+    const grouped = shouldGroupMessage(msg, prevMessage);
+    const groupedClass = grouped ? ' grouped' : '';
+    const color = getUserColor(msg.username);
 
-`;
-
-    let prevMessage = null;
-
-    for (const msg of messages) {
-        const grouped = shouldGroupMessage(msg, prevMessage);
-        const groupedClass = grouped ? ' grouped' : '';
-        const color = getUserColor(msg.username);
-
-        html += `        <div class="message${groupedClass}">
+    return `        <div class="message${groupedClass}">
             <div class="message-header">
                 <span class="author" style="color: ${color};">${msg.username}</span>
                 <span class="timestamp">${msg.timestamp}</span>
             </div>
             <div class="message-content">${msg.content}</div>
-        </div>
-`;
+        </div>`;
+}
 
+function generateMessagesHTML(messages) {
+    const messageElements = [];
+    let prevMessage = null;
+
+    for (const msg of messages) {
+        messageElements.push(generateMessageHTML(msg, prevMessage));
         prevMessage = msg;
     }
 
-    html += `    </div>
+    return messageElements.join('\n');
+}
+
+function generateContentHTML(data) {
+    const headerHTML = generateHeaderHTML(data.ticketInfo);
+    const messagesHTML = generateMessagesHTML(data.messages);
+
+    return `<div class="container">
+        ${headerHTML}
+
+${messagesHTML}
+    </div>`;
+}
+
+function wrapForDownload(contentHTML, styles, ticketInfo, themeAttr) {
+    const ticketNumber = ticketInfo ? ticketInfo.ticketNumber : 'Unknown';
+
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ticket #${ticketNumber}</title>
+    <style>
+${styles}
+    </style>
+</head>
+<body${themeAttr}>
+${contentHTML}
 </body>
 </html>`;
+}
 
-    return html;
+function wrapForViewer(contentHTML, styles, themeAttr) {
+    return `<div class="viewer-wrapper"${themeAttr}>
+<style>
+${styles}
+</style>
+${contentHTML}
+</div>`;
+}
+
+async function generateHTML(data, forDownload = false) {
+    const styles = await getTranscriptStyles();
+    const currentTheme = document.body.getAttribute('data-theme');
+    const themeAttr = currentTheme === 'light' ? ' data-theme="light"' : '';
+
+    const contentHTML = generateContentHTML(data);
+
+    if (forDownload) {
+        return wrapForDownload(contentHTML, styles, data.ticketInfo, themeAttr);
+    } else {
+        return wrapForViewer(contentHTML, styles, themeAttr);
+    }
 }
 
 const uploadArea = document.getElementById('uploadArea');
 const fileInput = document.getElementById('fileInput');
 const uploadContainer = document.getElementById('uploadContainer');
-const previewContainer = document.getElementById('previewContainer');
-const preview = document.getElementById('preview');
+const viewerContainer = document.getElementById('viewerContainer');
+const viewerContent = document.getElementById('viewerContent');
 const downloadBtn = document.getElementById('downloadBtn');
 const urlInput = document.getElementById('urlInput');
 const urlLoadBtn = document.getElementById('urlLoadBtn');
-const compactUrlInput = document.getElementById('compactUrlInput');
-const compactUrlLoadBtn = document.getElementById('compactUrlLoadBtn');
-const compactFileBtn = document.getElementById('compactFileBtn');
-const compactFileInput = document.getElementById('compactFileInput');
+const toolbarUrlInput = document.getElementById('toolbarUrlInput');
+const toolbarUrlLoadBtn = document.getElementById('toolbarUrlLoadBtn');
+const toolbarFileBtn = document.getElementById('toolbarFileBtn');
+const toolbarFileInput = document.getElementById('toolbarFileInput');
+const viewerToolbarToggle = document.getElementById('viewerToolbarToggle');
+const viewerToolbar = document.getElementById('viewerToolbar');
 const loadingModal = document.getElementById('loadingModal');
 const errorModal = document.getElementById('errorModal');
 const errorMessage = document.getElementById('errorMessage');
@@ -329,7 +384,61 @@ const errorCloseBtn = document.getElementById('errorCloseBtn');
 const errorRetryBtn = document.getElementById('errorRetryBtn');
 
 let currentHTML = '';
+let currentData = null;
+let currentFilename = null;
 let lastFailedUrl = null;
+
+function initTheme() {
+    const savedTheme = localStorage.getItem('theme');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const theme = savedTheme || (prefersDark ? 'dark' : 'light');
+
+    if (theme === 'light') {
+        document.body.setAttribute('data-theme', 'light');
+    }
+}
+
+function updateUsernameColors() {
+    const authors = viewerContent.querySelectorAll('.author');
+    authors.forEach(author => {
+        const username = author.textContent;
+        const color = getUserColor(username);
+        author.style.color = color;
+    });
+}
+
+function toggleTheme() {
+    const currentTheme = document.body.getAttribute('data-theme');
+    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+
+    if (newTheme === 'light') {
+        document.body.setAttribute('data-theme', 'light');
+    } else {
+        document.body.removeAttribute('data-theme');
+    }
+
+    const viewerWrapper = viewerContent.querySelector('.viewer-wrapper');
+    if (viewerWrapper) {
+        if (newTheme === 'light') {
+            viewerWrapper.setAttribute('data-theme', 'light');
+        } else {
+            viewerWrapper.removeAttribute('data-theme');
+        }
+    }
+
+    localStorage.setItem('theme', newTheme);
+    updateUsernameColors();
+}
+
+initTheme();
+
+document.querySelectorAll('.theme-toggle').forEach(button => {
+    button.addEventListener('click', toggleTheme);
+});
+
+viewerToolbarToggle.addEventListener('click', () => {
+    viewerToolbar.classList.toggle('expanded');
+});
 
 uploadArea.addEventListener('click', () => {
     fileInput.click();
@@ -367,32 +476,46 @@ function handleFile(file) {
     }
 
     const reader = new FileReader();
-    
+
     reader.onload = async (e) => {
         try {
             const text = e.target.result;
             const data = parseTranscript(text);
-            currentHTML = await generateHTML(data);
+            currentData = data;
+            currentFilename = file.name.replace(/\.txt$/i, '');
+            currentHTML = await generateHTML(data, false);
 
             uploadContainer.style.display = 'none';
-            previewContainer.style.display = 'block';
-            preview.innerHTML = currentHTML;
+            viewerContainer.style.display = 'block';
+            viewerContent.innerHTML = currentHTML;
 
         } catch (error) {
             alert('Error parsing transcript: ' + error.message);
             console.error(error);
         }
     };
-    
+
     reader.readAsText(file);
 }
 
-downloadBtn.addEventListener('click', () => {
-    const blob = new Blob([currentHTML], { type: 'text/html' });
+downloadBtn.addEventListener('click', async () => {
+    if (!currentData) return;
+
+    const downloadHTML = await generateHTML(currentData, true);
+    const blob = new Blob([downloadHTML], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'transcript-archive.html';
+
+    let filename = 'transcript-archive.html';
+    if (currentFilename) {
+        filename = `${currentFilename}.html`;
+    } else if (currentData.ticketInfo) {
+        const { ticketNumber, ticketType, openedBy } = currentData.ticketInfo;
+        filename = `ticket-${ticketNumber}-${ticketType}-${openedBy}.html`.replace(/[^a-z0-9.-]/gi, '_');
+    }
+    a.download = filename;
+
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -422,12 +545,20 @@ errorRetryBtn.addEventListener('click', () => {
     }
 });
 
-function showLoadingModal() {
+function showLoadingModal(subtext = 'This may take a few moments') {
+    const loadingSubtext = document.querySelector('.loading-subtext');
+    if (loadingSubtext) {
+        loadingSubtext.textContent = subtext;
+    }
     loadingModal.classList.add('show');
 }
 
 function hideLoadingModal() {
     loadingModal.classList.remove('show');
+    const loadingSubtext = document.querySelector('.loading-subtext');
+    if (loadingSubtext) {
+        loadingSubtext.textContent = 'This may take a few moments';
+    }
 }
 
 function showErrorModal(message) {
@@ -437,6 +568,35 @@ function showErrorModal(message) {
 
 function hideErrorModal() {
     errorModal.classList.remove('show');
+}
+
+class TranscriptError extends Error {
+    constructor(message, retryable = false) {
+        super(message);
+        this.name = 'TranscriptError';
+        this.retryable = retryable;
+    }
+}
+
+class InvalidURLError extends TranscriptError {
+    constructor(message) {
+        super(message, false);
+        this.name = 'InvalidURLError';
+    }
+}
+
+class TranscriptNotFoundError extends TranscriptError {
+    constructor(message) {
+        super(message, false);
+        this.name = 'TranscriptNotFoundError';
+    }
+}
+
+class InvalidTranscriptError extends TranscriptError {
+    constructor(message) {
+        super(message, false);
+        this.name = 'InvalidTranscriptError';
+    }
 }
 
 function isValidDiscordCDNUrl(url) {
@@ -468,7 +628,7 @@ function isValidTranscriptContent(text) {
     return transcriptHeaderPattern.test(firstLine);
 }
 
-async function fetchWithTimeout(url, timeout = 30000) {
+async function fetchWithTimeout(url, timeout = 15000) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
 
@@ -479,7 +639,10 @@ async function fetchWithTimeout(url, timeout = 30000) {
     } catch (error) {
         clearTimeout(timeoutId);
         if (error.name === 'AbortError') {
-            throw new Error('Request timed out. The server took too long to respond.');
+            // Mark timeout errors as retryable
+            const timeoutError = new TranscriptError('Request timed out. The server took too long to respond.', true);
+            timeoutError.isTimeout = true;
+            throw timeoutError;
         }
         throw error;
     }
@@ -487,51 +650,76 @@ async function fetchWithTimeout(url, timeout = 30000) {
 
 async function fetchTranscriptText(url, retryCount = 0, maxRetries = 2) {
     if (!isValidDiscordCDNUrl(url)) {
-        throw new Error('Invalid URL. Please provide a valid Discord CDN link (cdn.discordapp.com or cdn.discord.com).');
+        throw new InvalidURLError('Invalid URL. Please provide a valid Discord CDN link (cdn.discordapp.com or cdn.discord.com).');
     }
 
     try {
         const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
-        const response = await fetchWithTimeout(proxyUrl, 30000);
+        const response = await fetchWithTimeout(proxyUrl, 15000);
 
         if (!response.ok) {
-            throw new Error(`Failed to fetch transcript: ${response.status} ${response.statusText}`);
+            throw new TranscriptError(`Failed to fetch transcript: ${response.status} ${response.statusText}`, true);
         }
 
         const text = await response.text();
 
         if (!isValidTranscriptContent(text)) {
             if (text.includes('This content is no longer available')) {
-                throw new Error('This transcript is no longer available on Discord CDN.');
+                throw new TranscriptNotFoundError('This transcript is no longer available on Discord CDN.');
             }
-            throw new Error('The URL does not point to a valid transcript file. Please check the link and try again.');
+            throw new InvalidTranscriptError('The URL does not point to a valid transcript file. Please check the link and try again.');
         }
 
         return text;
     } catch (error) {
-        if (retryCount < maxRetries && !error.message.includes('Invalid URL') && !error.message.includes('no longer available') && !error.message.includes('not point to a valid transcript')) {
+        const shouldRetry = retryCount < maxRetries && (error.retryable || !(error instanceof TranscriptError));
+
+        if (shouldRetry) {
             await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
             return fetchTranscriptText(url, retryCount + 1, maxRetries);
         }
+
+        if (error.isTimeout && retryCount >= maxRetries) {
+            throw new TranscriptError(
+                'Request timed out after multiple attempts. The proxy server or Discord CDN may be experiencing slowdowns. Please click Retry to try again.',
+                false
+            );
+        }
+
         throw error;
     }
 }
 
-async function loadFromURL(url) {
+async function loadTranscriptFromURL(url, options = {}) {
+    const {
+        button = urlLoadBtn,
+        buttonText = 'Load from URL',
+        inputField = null,
+        showUploadContainer = true
+    } = options;
+
     lastFailedUrl = url;
 
     try {
-        urlLoadBtn.disabled = true;
-        urlLoadBtn.textContent = 'Loading...';
+        button.disabled = true;
+        button.textContent = 'Loading...';
         showLoadingModal();
 
         const text = await fetchTranscriptText(url);
         const data = parseTranscript(text);
-        currentHTML = await generateHTML(data);
+        currentData = data;
+        currentFilename = null; // URL loads don't have a filename
+        currentHTML = await generateHTML(data, false);
 
-        uploadContainer.style.display = 'none';
-        previewContainer.style.display = 'block';
-        preview.innerHTML = currentHTML;
+        if (showUploadContainer) {
+            uploadContainer.style.display = 'none';
+            viewerContainer.style.display = 'block';
+        }
+        viewerContent.innerHTML = currentHTML;
+
+        if (inputField) {
+            inputField.value = '';
+        }
 
         lastFailedUrl = null;
 
@@ -540,58 +728,48 @@ async function loadFromURL(url) {
         showErrorModal(error.message || 'Failed to load transcript. Please check the URL and try again.');
     } finally {
         hideLoadingModal();
-        urlLoadBtn.disabled = false;
-        urlLoadBtn.textContent = 'Load from URL';
+        button.disabled = false;
+        button.textContent = buttonText;
     }
 }
 
-compactFileBtn.addEventListener('click', () => {
-    compactFileInput.click();
+function loadFromURL(url) {
+    return loadTranscriptFromURL(url, {
+        button: urlLoadBtn,
+        buttonText: 'Load from URL',
+        showUploadContainer: true
+    });
+}
+
+toolbarFileBtn.addEventListener('click', () => {
+    toolbarFileInput.click();
 });
 
-compactFileInput.addEventListener('change', (e) => {
+toolbarFileInput.addEventListener('change', (e) => {
     if (e.target.files.length > 0) {
         handleFile(e.target.files[0]);
-        compactFileInput.value = '';
-        compactUrlInput.value = '';
+        toolbarFileInput.value = '';
+        toolbarUrlInput.value = '';
     }
 });
 
-compactUrlLoadBtn.addEventListener('click', () => {
-    const url = compactUrlInput.value.trim();
-    if (url) loadFromCompactURL(url);
+toolbarUrlLoadBtn.addEventListener('click', () => {
+    const url = toolbarUrlInput.value.trim();
+    if (url) loadFromToolbarURL(url);
 });
 
-compactUrlInput.addEventListener('keypress', (e) => {
+toolbarUrlInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {
-        const url = compactUrlInput.value.trim();
-        if (url) loadFromCompactURL(url);
+        const url = toolbarUrlInput.value.trim();
+        if (url) loadFromToolbarURL(url);
     }
 });
 
-async function loadFromCompactURL(url) {
-    lastFailedUrl = url;
-
-    try {
-        compactUrlLoadBtn.disabled = true;
-        compactUrlLoadBtn.textContent = 'Loading...';
-        showLoadingModal();
-
-        const text = await fetchTranscriptText(url);
-        const data = parseTranscript(text);
-        currentHTML = await generateHTML(data);
-
-        preview.innerHTML = currentHTML;
-        compactUrlInput.value = '';
-
-        lastFailedUrl = null;
-
-    } catch (error) {
-        console.error(error);
-        showErrorModal(error.message || 'Failed to load transcript. Please check the URL and try again.');
-    } finally {
-        hideLoadingModal();
-        compactUrlLoadBtn.disabled = false;
-        compactUrlLoadBtn.textContent = 'Load';
-    }
+function loadFromToolbarURL(url) {
+    return loadTranscriptFromURL(url, {
+        button: toolbarUrlLoadBtn,
+        buttonText: 'Load',
+        inputField: toolbarUrlInput,
+        showUploadContainer: false
+    });
 }
