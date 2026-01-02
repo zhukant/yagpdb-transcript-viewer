@@ -154,7 +154,7 @@ function parseContent(content, userIdMap = null) {
     if (jsonMatch) {
         try {
             const parsed = JSON.parse(jsonMatch[2]);
-            if (parsed.type === 'rich') {
+            if (parsed.type === 'rich' || parsed.type === 'link') {
                 embedData = parsed;
                 content = jsonMatch[1].trim();
             }
@@ -166,47 +166,61 @@ function parseContent(content, userIdMap = null) {
 
     if (embedData) {
         let embedHTML = '<div class="embed">';
-
-        if (embedData.color) {
-            const colorHex = '#' + embedData.color.toString(16).padStart(6, '0');
-            embedHTML = `<div class="embed" style="border-left-color: ${colorHex};">`;
-        }
-
         let embedContent = '';
 
-        if (embedData.author?.name) {
-            embedContent += `**${embedData.author.name}**\n\n`;
-        }
+        if (embedData.type === 'link') {
+            if (embedData.title && embedData.url) {
+                embedContent += `**[${embedData.title}](${embedData.url})**\n`;
+            }
 
-        if (embedData.title) {
-            embedContent += `**${embedData.title}**\n\n`;
-        }
+            if (embedData.description) {
+                embedContent += `${embedData.description}\n`;
+            }
 
-        if (embedData.description) {
-            embedContent += `${embedData.description}\n\n`;
-        }
+            if (embedData.provider?.name) {
+                embedContent += `*${embedData.provider.name}*`;
+            }
+        } else {  
+            // rich embed
+            if (embedData.color) {
+                const colorHex = '#' + embedData.color.toString(16).padStart(6, '0');
+                embedHTML = `<div class="embed" style="border-left-color: ${colorHex};">`;
+            }
 
-        if (embedData.fields && Array.isArray(embedData.fields)) {
-            for (const field of embedData.fields) {
-                if (field.name) {
-                    embedContent += `**${field.name}**\n`;
+            if (embedData.author?.name) {
+                embedContent += `**${embedData.author.name}**\n\n`;
+            }
+
+            if (embedData.title) {
+                embedContent += `**${embedData.title}**\n\n`;
+            }
+
+            if (embedData.description) {
+                embedContent += `${embedData.description}\n\n`;
+            }
+
+            if (embedData.fields && Array.isArray(embedData.fields)) {
+                for (const field of embedData.fields) {
+                    if (field.name) {
+                        embedContent += `**${field.name}**\n`;
+                    }
+                    if (field.value) {
+                        embedContent += `${field.value}\n\n`;
+                    }
                 }
-                if (field.value) {
-                    embedContent += `${field.value}\n\n`;
-                }
             }
-        }
 
-        if (embedData.footer?.text || embedData.timestamp) {
-            const footerParts = [];
-            if (embedData.footer?.text) {
-                footerParts.push(embedData.footer.text);
+            if (embedData.footer?.text || embedData.timestamp) {
+                const footerParts = [];
+                if (embedData.footer?.text) {
+                    footerParts.push(embedData.footer.text);
+                }
+                if (embedData.timestamp) {
+                    const date = new Date(embedData.timestamp);
+                    footerParts.push(date.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }));
+                }
+                embedContent += `*${footerParts.join(' ')}*`;
             }
-            if (embedData.timestamp) {
-                const date = new Date(embedData.timestamp);
-                footerParts.push(date.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }));
-            }
-            embedContent += `*${footerParts.join(' ')}*`;
         }
 
         if (embedContent) {
