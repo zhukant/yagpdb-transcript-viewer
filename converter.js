@@ -41,7 +41,7 @@ function formatDiscordMarkdown(text, userIdMap = null) {
 
     text = text.replace(/<@&(\d+)>/g, '<span style="color: #5865f2; background-color: rgba(88, 101, 242, 0.15); padding: 0 2px; border-radius: 3px;">@role</span>');
     text = text.replace(/<#(\d+)>/g, '<span style="color: #5865f2;">#channel</span>');
-    text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="embed-link">$1</a>');
+    text = text.replace(/\[([^\]]+)\]\(<?([^)>]+)>?\)/g, '<a href="$2" class="embed-link">$1</a>');
 
     const lines = text.split('\n');
     let inQuote = false;
