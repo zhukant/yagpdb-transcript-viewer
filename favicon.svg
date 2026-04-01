@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 120">
+  <!-- Document outline -->
+  <rect x="4" y="4" width="92" height="112" rx="14" fill="white" stroke="#5a5a5a" stroke-width="7"/>
+  <!-- Title line (centered) -->
+  <rect x="28" y="19" width="44" height="7" rx="3.5" fill="#5a5a5a"/>
+  <!-- Row 1 -->
+  <rect x="12" y="37" width="23" height="7" rx="3.5" fill="#5a5a5a"/>
+  <rect x="41" y="37" width="47" height="7" rx="3.5" fill="#5a5a5a"/>
+  <!-- Row 2 -->
+  <rect x="12" y="51" width="23" height="7" rx="3.5" fill="#5a5a5a"/>
+  <rect x="41" y="51" width="47" height="7" rx="3.5" fill="#5a5a5a"/>
+  <!-- Row 3 -->
+  <rect x="12" y="65" width="23" height="7" rx="3.5" fill="#5a5a5a"/>
+  <rect x="41" y="65" width="47" height="7" rx="3.5" fill="#5a5a5a"/>
+  <!-- Row 4 -->
+  <rect x="12" y="79" width="23" height="7" rx="3.5" fill="#5a5a5a"/>
+  <rect x="41" y="79" width="47" height="7" rx="3.5" fill="#5a5a5a"/>
+  <!-- Row 5 -->
+  <rect x="12" y="93" width="23" height="7" rx="3.5" fill="#5a5a5a"/>
+  <rect x="41" y="93" width="47" height="7" rx="3.5" fill="#5a5a5a"/>
+</svg>
