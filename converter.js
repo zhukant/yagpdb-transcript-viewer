@@ -662,13 +662,21 @@ async function fetchWithTimeout(url, timeout = 15000) {
     }
 }
 
-async function fetchTranscriptText(url, retryCount = 0, maxRetries = 2) {
+const PROXIES = [
+    // NOTE: theooolone.com only accepts requests from https://zhukant.github.io.
+    // Forks should replace this with their own proxy or remove it entirely.
+    url => `https://theooolone.com/discordcdnproxy.php?url=${encodeURIComponent(url)}`,
+    url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+];
+const ATTEMPTS_PER_PROXY = 2;
+
+async function fetchTranscriptText(url, proxyIndex = 0, attempt = 0) {
     if (!isValidDiscordCDNUrl(url)) {
         throw new InvalidURLError('Invalid URL. Please provide a valid Discord CDN link (cdn.discordapp.com or cdn.discord.com).');
     }
 
     try {
-        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+        const proxyUrl = PROXIES[proxyIndex](url);
         const response = await fetchWithTimeout(proxyUrl, 15000);
 
         if (!response.ok) {
@@ -686,21 +694,32 @@ async function fetchTranscriptText(url, retryCount = 0, maxRetries = 2) {
 
         return text;
     } catch (error) {
-        const shouldRetry = retryCount < maxRetries && (error.retryable || !(error instanceof TranscriptError));
-
-        if (shouldRetry) {
-            await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
-            return fetchTranscriptText(url, retryCount + 1, maxRetries);
+        if (error instanceof TranscriptError && !error.retryable) {
+            throw error;
         }
 
-        if (error.isTimeout && retryCount >= maxRetries) {
-            throw new TranscriptError(
-                'Request timed out after multiple attempts. The proxy server or Discord CDN may be experiencing slowdowns. Please click Retry to try again.',
-                false
-            );
+        const isConnectionError = !(error instanceof TranscriptError);
+        const nextProxy = proxyIndex + 1;
+        const hasNextProxy = nextProxy < PROXIES.length;
+
+        // Fast fail for proxy outages
+        if (isConnectionError && hasNextProxy) {
+            return fetchTranscriptText(url, nextProxy, 0);
         }
 
-        throw error;
+        if (attempt + 1 < ATTEMPTS_PER_PROXY) {
+            await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+            return fetchTranscriptText(url, proxyIndex, attempt + 1);
+        }
+
+        if (hasNextProxy) {
+            return fetchTranscriptText(url, nextProxy, 0);
+        }
+
+        throw new TranscriptError(
+            'Request failed after multiple attempts across all proxies. Please click Retry to try again.',
+            false
+        );
     }
 }
 

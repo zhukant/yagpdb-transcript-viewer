@@ -13,7 +13,8 @@ Expected format: `[2025 Dec 14 19:08:15] username#1234 (123456789012345678): Mes
 ## Technical Notes
 
 - All processing happens client-side
-- Discord CDN URLs require a CORS proxy ([AllOrigins](https://allorigins.win/)) due to browser restrictions
+- Discord CDN URLs are fetched via a primary private proxy with [AllOrigins](https://allorigins.win/) as a public fallback
+- **Forks:** the primary proxy in `converter.js` only accepts requests from `zhukant.github.io` — replace or remove it before deploying
 - Automatic retry with exponential backoff for network timeouts (up to 3 attempts)
 - 15-second timeout per request
 - Mobile-responsive with collapsible toolbar
