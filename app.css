@@ -92,20 +92,20 @@ body:has(.viewer-container[style*="display: block"]) .theme-toggle-landing {
     display: none;
 }
 
-.upload-container {
+.landing-container {
     max-width: 800px;
     margin: 0 auto;
     text-align: center;
     padding: 60px 20px;
 }
 
-.upload-container h1 {
+.landing-container h1 {
     color: var(--text-primary);
     font-size: 32px;
     margin-bottom: 16px;
 }
 
-.upload-container p {
+.landing-container p {
     color: var(--text-tertiary);
     font-size: 16px;
     margin-bottom: 32px;
@@ -416,16 +416,16 @@ input[type="file"] {
 }
 
 @media (max-width: 700px) {
-    .upload-container {
+    .landing-container {
         padding: 40px 20px;
     }
 
-    .upload-container h1 {
+    .landing-container h1 {
         font-size: 24px;
         margin-bottom: 12px;
     }
 
-    .upload-container p {
+    .landing-container p {
         font-size: 14px;
         margin-bottom: 24px;
     }

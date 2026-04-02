@@ -336,14 +336,14 @@ ${messagesHTML}
 }
 
 function wrapForDownload(contentHTML, styles, ticketInfo, themeAttr) {
-    const ticketNumber = ticketInfo ? ticketInfo.ticketNumber : 'Unknown';
+    const title = ticketInfo ? `#${ticketInfo.ticketNumber} ${ticketInfo.ticketType}` : 'Transcript';
 
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ticket #${ticketNumber}</title>
+    <title>${title}</title>
     <style>
 ${styles}
     </style>
@@ -363,6 +363,26 @@ ${contentHTML}
 </div>`;
 }
 
+function setTabTitle(ticketInfo) {
+    if (ticketInfo) {
+        document.title = `#${ticketInfo.ticketNumber} ${ticketInfo.ticketType}`;
+    }
+}
+
+async function displayTranscript(text, { filename = null, landingContainerVisible = true } = {}) {
+    const data = parseTranscript(text);
+    currentData = data;
+    currentFilename = filename;
+    currentHTML = await generateHTML(data, false);
+
+    if (landingContainerVisible) {
+        landingContainer.style.display = 'none';
+        viewerContainer.style.display = 'block';
+    }
+    viewerContent.innerHTML = currentHTML;
+    setTabTitle(data.ticketInfo);
+}
+
 async function generateHTML(data, forDownload = false) {
     const styles = await getTranscriptStyles();
     const currentTheme = document.body.getAttribute('data-theme');
@@ -379,7 +399,7 @@ async function generateHTML(data, forDownload = false) {
 
 const uploadArea = document.getElementById('uploadArea');
 const fileInput = document.getElementById('fileInput');
-const uploadContainer = document.getElementById('uploadContainer');
+const landingContainer = document.getElementById('landingContainer');
 const viewerContainer = document.getElementById('viewerContainer');
 const viewerContent = document.getElementById('viewerContent');
 const downloadBtn = document.getElementById('downloadBtn');
@@ -493,16 +513,7 @@ function handleFile(file) {
 
     reader.onload = async (e) => {
         try {
-            const text = e.target.result;
-            const data = parseTranscript(text);
-            currentData = data;
-            currentFilename = file.name.replace(/\.txt$/i, '');
-            currentHTML = await generateHTML(data, false);
-
-            uploadContainer.style.display = 'none';
-            viewerContainer.style.display = 'block';
-            viewerContent.innerHTML = currentHTML;
-
+            await displayTranscript(e.target.result, { filename: file.name.replace(/\.txt$/i, '') });
         } catch (error) {
             alert('Error parsing transcript: ' + error.message);
             console.error(error);
@@ -728,7 +739,7 @@ async function loadTranscriptFromURL(url, options = {}) {
         button = urlLoadBtn,
         buttonText = 'Load from URL',
         inputField = null,
-        showUploadContainer = true
+        landingContainerVisible = true
     } = options;
 
     lastFailedUrl = url;
@@ -739,16 +750,7 @@ async function loadTranscriptFromURL(url, options = {}) {
         showLoadingModal();
 
         const text = await fetchTranscriptText(url);
-        const data = parseTranscript(text);
-        currentData = data;
-        currentFilename = null; // URL loads don't have a filename
-        currentHTML = await generateHTML(data, false);
-
-        if (showUploadContainer) {
-            uploadContainer.style.display = 'none';
-            viewerContainer.style.display = 'block';
-        }
-        viewerContent.innerHTML = currentHTML;
+        await displayTranscript(text, { landingContainerVisible });
 
         if (inputField) {
             inputField.value = '';
@@ -770,7 +772,7 @@ function loadFromURL(url) {
     return loadTranscriptFromURL(url, {
         button: urlLoadBtn,
         buttonText: 'Load from URL',
-        showUploadContainer: true
+        landingContainerVisible: true
     });
 }
 
@@ -803,6 +805,6 @@ function loadFromToolbarURL(url) {
         button: toolbarUrlLoadBtn,
         buttonText: 'Load',
         inputField: toolbarUrlInput,
-        showUploadContainer: false
+        landingContainerVisible: false
     });
 }
