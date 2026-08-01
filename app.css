@@ -197,6 +197,10 @@ input[type="file"] {
     gap: 16px;
 }
 
+#viewerContent {
+    margin-bottom: 20px;
+}
+
 .viewer-toolbar-container-controls {
     display: none;
 }
@@ -277,19 +281,19 @@ input[type="file"] {
     color: var(--text-muted);
 }
 
-#toolbarUrlLoadBtn {
+.toolbar-load-btn {
     order: 2;
 }
 
-#toolbarFileBtn {
+.toolbar-browse-btn {
     order: 3;
 }
 
-#downloadBtn {
+.toolbar-download-btn {
     order: 4;
 }
 
-#themeToggleViewerDesktop {
+.theme-toggle-viewer-desktop {
     order: 5;
 }
 
@@ -462,15 +466,15 @@ input[type="file"] {
         width: auto;
     }
 
-    #toolbarUrlLoadBtn {
+    .toolbar-load-btn {
         order: 2;
     }
 
-    #toolbarFileBtn {
+    .toolbar-browse-btn {
         order: 3;
     }
 
-    #downloadBtn {
+    .toolbar-download-btn {
         order: 4;
     }
 

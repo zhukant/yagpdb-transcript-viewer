@@ -24,6 +24,27 @@ function getUserColor(username) {
     return colors[index % colors.length];
 }
 
+function linkifyBareUrls(html) {
+    // Only touch text outside existing <a>...</a> tags, so already-linked
+    // URLs (markdown links, mentions) never get wrapped a second time.
+    const segments = html.split(/(<a\b[^>]*>.*?<\/a>)/gi);
+
+    for (let i = 0; i < segments.length; i += 2) {
+        segments[i] = segments[i].replace(/\bhttps?:\/\/[^\s<]+/g, (match) => {
+            let url = match;
+            let trailing = '';
+            while (url.length && /[.,;:!?)\]]/.test(url[url.length - 1])) {
+                trailing = url[url.length - 1] + trailing;
+                url = url.slice(0, -1);
+            }
+            if (!url) return match;
+            return `<a href="${url}" class="embed-link" target="_blank" rel="noopener noreferrer">${url}</a>${trailing}`;
+        });
+    }
+
+    return segments.join('');
+}
+
 function formatDiscordMarkdown(text, userIdMap = null) {
     text = text
         .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
@@ -36,12 +57,12 @@ function formatDiscordMarkdown(text, userIdMap = null) {
         const username = userIdMap && userIdMap.get(userId);
         const displayName = username ? `@${username}` : '@user';
         const discordUrl = `https://discord.com/users/${userId}`;
-        return `<a href="${discordUrl}" class="embed-link" style="color: #5865f2; background-color: rgba(88, 101, 242, 0.15); padding: 0 2px; border-radius: 3px; text-decoration: none;">${displayName}</a>`;
+        return `<a href="${discordUrl}" class="embed-link" style="color: #5865f2; background-color: rgba(88, 101, 242, 0.15); padding: 0 2px; border-radius: 3px; text-decoration: none;" target="_blank" rel="noopener noreferrer">${displayName}</a>`;
     });
 
     text = text.replace(/<@&(\d+)>/g, '<span style="color: #5865f2; background-color: rgba(88, 101, 242, 0.15); padding: 0 2px; border-radius: 3px;">@role</span>');
     text = text.replace(/<#(\d+)>/g, '<span style="color: #5865f2;">#channel</span>');
-    text = text.replace(/\[([^\]]+)\]\(<?([^)>]+)>?\)/g, '<a href="$2" class="embed-link">$1</a>');
+    text = text.replace(/\[([^\]]+)\]\(<?([^)>]+)>?\)/g, '<a href="$2" class="embed-link" target="_blank" rel="noopener noreferrer">$1</a>');
 
     const lines = text.split('\n');
     let inQuote = false;
@@ -80,7 +101,7 @@ function formatDiscordMarkdown(text, userIdMap = null) {
         result.push('<div class="blockquote">' + quoteLines.join('<br>') + '</div>');
     }
 
-    return result.join('<br>');
+    return linkifyBareUrls(result.join('<br>'));
 }
 
 function parseTranscript(text) {
@@ -96,14 +117,15 @@ function parseTranscript(text) {
         ticketInfo = { ticketNumber, ticketType, openedBy, openedAt, closedAt };
     }
 
-    // Regex to match message header: [timestamp] username#0000 (userId): message content
-    const MESSAGE_HEADER_REGEX = /^\[(.+?)\] (.+?)(#\d+)? \((\d+)\): (.*)$/;
+    // Regex to match message header: [timestamp] username#0000 (userId) [FORWARDED]: message content
+    const MESSAGE_HEADER_REGEX = /^\[(.+?)\] (.+?)(#\d+)? \((\d+)\)( FORWARDED)?: (.*)$/;
 
     const HEADER_TIMESTAMP = 1;
     const HEADER_USERNAME = 2;
     // const HEADER_DISCRIMINATOR = 3;
     const HEADER_USERID = 4;
-    const HEADER_CONTENT = 5;
+    const HEADER_FORWARDED = 5;
+    const HEADER_CONTENT = 6;
 
     for (let i = 1; i < lines.length; i++) {
         const line = lines[i];
@@ -132,6 +154,7 @@ function parseTranscript(text) {
             currentMessage = {
                 timestamp: match[HEADER_TIMESTAMP],
                 username: match[HEADER_USERNAME],
+                forwarded: !!match[HEADER_FORWARDED],
                 content: match[HEADER_CONTENT]
             };
         } else if (currentMessage) {
@@ -154,7 +177,7 @@ function parseContent(content, userIdMap = null) {
     if (jsonMatch) {
         try {
             const parsed = JSON.parse(jsonMatch[2]);
-            if (parsed.type === 'rich' || parsed.type === 'link') {
+            if (typeof parsed.type === 'string') {
                 embedData = parsed;
                 content = jsonMatch[1].trim();
             }
@@ -168,9 +191,13 @@ function parseContent(content, userIdMap = null) {
         let embedHTML = '<div class="embed">';
         let embedContent = '';
 
-        if (embedData.type === 'link') {
-            if (embedData.title && embedData.url) {
-                embedContent += `**[${embedData.title}](${embedData.url})**\n`;
+        if (embedData.type !== 'rich') {
+            // link-style fallback: covers link, gifv, image, video, and any other/unknown embed type
+            if (embedData.url) {
+                const label = embedData.title || embedData.url;
+                embedContent += `**[${label}](${embedData.url})**\n`;
+            } else if (embedData.title) {
+                embedContent += `**${embedData.title}**\n`;
             }
 
             if (embedData.description) {
@@ -180,7 +207,7 @@ function parseContent(content, userIdMap = null) {
             if (embedData.provider?.name) {
                 embedContent += `*${embedData.provider.name}*`;
             }
-        } else {  
+        } else {
             // rich embed
             if (embedData.color) {
                 const colorHex = '#' + embedData.color.toString(16).padStart(6, '0');
@@ -303,12 +330,16 @@ function generateMessageHTML(msg, prevMessage) {
     const groupedClass = grouped ? ' grouped' : '';
     const color = getUserColor(msg.username);
 
+    const contentHTML = msg.forwarded
+        ? `<div class="forwarded-label">&#8618; Forwarded</div><div class="blockquote">${msg.content}</div>`
+        : msg.content;
+
     return `        <div class="message${groupedClass}">
             <div class="message-header">
                 <span class="author" style="color: ${color};">${msg.username}</span>
                 <span class="timestamp">${msg.timestamp}</span>
             </div>
-            <div class="message-content">${msg.content}</div>
+            <div class="message-content">${contentHTML}</div>
         </div>`;
 }
 
@@ -402,15 +433,9 @@ const fileInput = document.getElementById('fileInput');
 const landingContainer = document.getElementById('landingContainer');
 const viewerContainer = document.getElementById('viewerContainer');
 const viewerContent = document.getElementById('viewerContent');
-const downloadBtn = document.getElementById('downloadBtn');
 const urlInput = document.getElementById('urlInput');
 const urlLoadBtn = document.getElementById('urlLoadBtn');
-const toolbarUrlInput = document.getElementById('toolbarUrlInput');
-const toolbarUrlLoadBtn = document.getElementById('toolbarUrlLoadBtn');
-const toolbarFileBtn = document.getElementById('toolbarFileBtn');
-const toolbarFileInput = document.getElementById('toolbarFileInput');
-const viewerToolbarToggle = document.getElementById('viewerToolbarToggle');
-const viewerToolbar = document.getElementById('viewerToolbar');
+const viewerToolbarContainers = document.querySelectorAll('.viewer-toolbar-container');
 const loadingModal = document.getElementById('loadingModal');
 const errorModal = document.getElementById('errorModal');
 const errorMessage = document.getElementById('errorMessage');
@@ -470,10 +495,6 @@ document.querySelectorAll('.theme-toggle').forEach(button => {
     button.addEventListener('click', toggleTheme);
 });
 
-viewerToolbarToggle.addEventListener('click', () => {
-    viewerToolbar.classList.toggle('expanded');
-});
-
 uploadArea.addEventListener('click', () => {
     fileInput.click();
 });
@@ -523,7 +544,7 @@ function handleFile(file) {
     reader.readAsText(file);
 }
 
-downloadBtn.addEventListener('click', async () => {
+async function downloadCurrentTranscript() {
     if (!currentData) return;
 
     const downloadHTML = await generateHTML(currentData, true);
@@ -545,7 +566,7 @@ downloadBtn.addEventListener('click', async () => {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-});
+}
 
 urlLoadBtn.addEventListener('click', () => {
     const url = urlInput.value.trim();
@@ -776,35 +797,53 @@ function loadFromURL(url) {
     });
 }
 
-toolbarFileBtn.addEventListener('click', () => {
-    toolbarFileInput.click();
-});
+function initViewerToolbar(container) {
+    const toggle = container.querySelector('.viewer-toolbar-toggle');
+    const toolbar = container.querySelector('.viewer-toolbar');
+    const toolbarUrlInputEl = container.querySelector('.toolbar-url-input');
+    const loadBtn = container.querySelector('[data-action="load"]');
+    const browseBtn = container.querySelector('[data-action="browse"]');
+    const downloadBtnEl = container.querySelector('[data-action="download"]');
+    const toolbarFileInputEl = container.querySelector('.toolbar-file-input');
 
-toolbarFileInput.addEventListener('change', (e) => {
-    if (e.target.files.length > 0) {
-        handleFile(e.target.files[0]);
-        toolbarFileInput.value = '';
-        toolbarUrlInput.value = '';
-    }
-});
-
-toolbarUrlLoadBtn.addEventListener('click', () => {
-    const url = toolbarUrlInput.value.trim();
-    if (url) loadFromToolbarURL(url);
-});
-
-toolbarUrlInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') {
-        const url = toolbarUrlInput.value.trim();
-        if (url) loadFromToolbarURL(url);
-    }
-});
-
-function loadFromToolbarURL(url) {
-    return loadTranscriptFromURL(url, {
-        button: toolbarUrlLoadBtn,
-        buttonText: 'Load',
-        inputField: toolbarUrlInput,
-        landingContainerVisible: false
+    toggle.addEventListener('click', () => {
+        toolbar.classList.toggle('expanded');
     });
+
+    browseBtn.addEventListener('click', () => {
+        toolbarFileInputEl.click();
+    });
+
+    toolbarFileInputEl.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+            handleFile(e.target.files[0]);
+            toolbarFileInputEl.value = '';
+            toolbarUrlInputEl.value = '';
+        }
+    });
+
+    function loadFromThisToolbar(url) {
+        return loadTranscriptFromURL(url, {
+            button: loadBtn,
+            buttonText: 'Load',
+            inputField: toolbarUrlInputEl,
+            landingContainerVisible: false
+        });
+    }
+
+    loadBtn.addEventListener('click', () => {
+        const url = toolbarUrlInputEl.value.trim();
+        if (url) loadFromThisToolbar(url);
+    });
+
+    toolbarUrlInputEl.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            const url = toolbarUrlInputEl.value.trim();
+            if (url) loadFromThisToolbar(url);
+        }
+    });
+
+    downloadBtnEl.addEventListener('click', downloadCurrentTranscript);
 }
+
+viewerToolbarContainers.forEach(initViewerToolbar);

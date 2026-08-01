@@ -47,33 +47,61 @@
     <div class="viewer-container" id="viewerContainer">
         <div class="viewer-toolbar-container">
             <div class="viewer-toolbar-container-controls">
-                <button class="viewer-toolbar-toggle" id="viewerToolbarToggle" aria-label="Toggle controls" title="Toggle controls">
+                <button class="viewer-toolbar-toggle" aria-label="Toggle controls" title="Toggle controls">
                     <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
                         <path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
                     </svg>
                 </button>
-                <button class="button compact secondary theme-toggle theme-toggle-viewer-mobile" id="themeToggleViewerMobile" aria-label="Toggle theme" title="Toggle theme">
+                <button class="button compact secondary theme-toggle theme-toggle-viewer-mobile" aria-label="Toggle theme" title="Toggle theme">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                         <use href="#sun-icon" class="sun-icon"/>
                         <use href="#moon-icon" class="moon-icon"/>
                     </svg>
                 </button>
             </div>
-            <div class="viewer-toolbar" id="viewerToolbar">
-                <input type="text" id="toolbarUrlInput" class="toolbar-url-input" placeholder="Paste URL to load another...">
-                <button class="button compact" id="toolbarUrlLoadBtn">Load</button>
-                <button class="button compact secondary" id="toolbarFileBtn">Browse</button>
-                <button class="button compact" id="downloadBtn">Download HTML</button>
-                <button class="button compact secondary theme-toggle theme-toggle-viewer-desktop" id="themeToggleViewerDesktop" aria-label="Toggle theme" title="Toggle theme">
+            <div class="viewer-toolbar">
+                <input type="text" class="toolbar-url-input" placeholder="Paste URL to load another...">
+                <button class="button compact toolbar-load-btn" data-action="load">Load</button>
+                <button class="button compact secondary toolbar-browse-btn" data-action="browse">Browse</button>
+                <button class="button compact toolbar-download-btn" data-action="download">Download HTML</button>
+                <button class="button compact secondary theme-toggle theme-toggle-viewer-desktop" aria-label="Toggle theme" title="Toggle theme">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                         <use href="#sun-icon" class="sun-icon"/>
                         <use href="#moon-icon" class="moon-icon"/>
                     </svg>
                 </button>
-                <input type="file" id="toolbarFileInput" accept=".txt" style="display: none;">
+                <input type="file" class="toolbar-file-input" accept=".txt" style="display: none;">
             </div>
         </div>
         <div id="viewerContent"></div>
+        <div class="viewer-toolbar-container">
+            <div class="viewer-toolbar-container-controls">
+                <button class="viewer-toolbar-toggle" aria-label="Toggle controls" title="Toggle controls">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                </button>
+                <button class="button compact secondary theme-toggle theme-toggle-viewer-mobile" aria-label="Toggle theme" title="Toggle theme">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                        <use href="#sun-icon" class="sun-icon"/>
+                        <use href="#moon-icon" class="moon-icon"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="viewer-toolbar">
+                <input type="text" class="toolbar-url-input" placeholder="Paste URL to load another...">
+                <button class="button compact toolbar-load-btn" data-action="load">Load</button>
+                <button class="button compact secondary toolbar-browse-btn" data-action="browse">Browse</button>
+                <button class="button compact toolbar-download-btn" data-action="download">Download HTML</button>
+                <button class="button compact secondary theme-toggle theme-toggle-viewer-desktop" aria-label="Toggle theme" title="Toggle theme">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                        <use href="#sun-icon" class="sun-icon"/>
+                        <use href="#moon-icon" class="moon-icon"/>
+                    </svg>
+                </button>
+                <input type="file" class="toolbar-file-input" accept=".txt" style="display: none;">
+            </div>
+        </div>
     </div>
 
     <div class="loading-modal" id="loadingModal">
